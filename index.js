@@ -1242,6 +1242,32 @@ app.post("/api/create_store", (req, res) => {
   });
 });
 
+// Update store API
+app.put('/api/update_store/:id', (req, res) => {
+  const storeId = req.params.id; // Get the store ID from the URL parameters
+  const { storeName } = req.body; // Extract new store name from the request body
+
+  // Validation
+  if (!storeName) {
+    return res.status(400).json({ message: 'Store name is required' });
+  }
+
+  const query = 'UPDATE stores SET storeName = ? WHERE id = ?';
+  db.query(query, [storeName, storeId], (err, result) => {
+    if (err) {
+      console.error('Error updating store:', err);
+      return res.status(500).json({ message: 'Error updating store' });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Store not found' });
+    }
+
+    res.status(200).json({ message: `Store has been updated successfully.` });
+  });
+});
+
+
 
 // Get batches API
 app.get('/api/get_batches', (req, res) => {
