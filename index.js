@@ -1353,8 +1353,8 @@ app.put('/api/update_batch/:id', (req, res) => {
 });
 
 
-// Endpoint to insert a new product into the database
-router.post('/api/create_product', (req, res) => {
+// Create product API
+app.post('/api/create_product', (req, res) => {
   const {
     productId,
     productName,
@@ -1380,6 +1380,11 @@ router.post('/api/create_product', (req, res) => {
     store,
     user
   } = req.body;
+
+  // Check for required fields
+  if (!productId || !productName || !costPrice || !mrpPrice) {
+    return res.status(400).json({ message: 'Product ID, Product Name, Cost Price, and MRP Price are required fields.' });
+  }
 
   const insertProductQuery = `
     INSERT INTO products 
@@ -1417,15 +1422,13 @@ router.post('/api/create_product', (req, res) => {
 
   db.query(insertProductQuery, values, (err, result) => {
     if (err) {
-      console.error('Error inserting product:', err);
-      res.status(500).json({ message: 'Error saving product', error: err });
+      console.error('Error creating product:', err);
+      res.status(500).json({ message: 'Error creating product', error: err });
     } else {
-      res.status(201).json({ message: 'Product added successfully!' });
+      res.status(201).json({ message: 'Product created successfully!' });
     }
   });
 });
-
-module.exports = router;
 
 
 // Start the server
