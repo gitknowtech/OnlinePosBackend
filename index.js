@@ -291,7 +291,6 @@ const createStoresTable = () => {
 };
 
 
-// Create the products table if it doesn't exist
 const createProductTable = () => {
   const createTableQuery = `
     CREATE TABLE IF NOT EXISTS products (
@@ -331,6 +330,7 @@ const createProductTable = () => {
     }
   });
 };
+
 
 
 // Create batches table
@@ -1353,7 +1353,79 @@ app.put('/api/update_batch/:id', (req, res) => {
 });
 
 
+// Endpoint to insert a new product into the database
+router.post('/api/create_product', (req, res) => {
+  const {
+    productId,
+    productName,
+    productNameSinhala,
+    barcode,
+    batchNumber,
+    selectedSupplier,
+    selectedCategory,
+    selectedUnit,
+    manufacturingDate,
+    expiringDate,
+    costPrice,
+    mrpPrice,
+    profitPercentage,
+    profitAmount,
+    discountPrice,
+    discountPercentage,
+    wholesalePrice,
+    wholesalePercentage,
+    lockedPrice,
+    availableStock,
+    stockAlert,
+    store,
+    user
+  } = req.body;
 
+  const insertProductQuery = `
+    INSERT INTO products 
+    (productId, productName, productNameSinhala, barcode, batchNumber, selectedSupplier, selectedCategory, selectedUnit, 
+     manufacturingDate, expiringDate, costPrice, mrpPrice, profitPercentage, profitAmount, discountPrice, discountPercentage, 
+     wholesalePrice, wholesalePercentage, lockedPrice, availableStock, stockAlert, store, user)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+
+  const values = [
+    productId,
+    productName,
+    productNameSinhala,
+    barcode,
+    batchNumber,
+    selectedSupplier,
+    selectedCategory,
+    selectedUnit,
+    manufacturingDate,
+    expiringDate,
+    costPrice,
+    mrpPrice,
+    profitPercentage,
+    profitAmount,
+    discountPrice,
+    discountPercentage,
+    wholesalePrice,
+    wholesalePercentage,
+    lockedPrice,
+    availableStock,
+    stockAlert,
+    store,
+    user
+  ];
+
+  db.query(insertProductQuery, values, (err, result) => {
+    if (err) {
+      console.error('Error inserting product:', err);
+      res.status(500).json({ message: 'Error saving product', error: err });
+    } else {
+      res.status(201).json({ message: 'Product added successfully!' });
+    }
+  });
+});
+
+module.exports = router;
 
 
 // Start the server
