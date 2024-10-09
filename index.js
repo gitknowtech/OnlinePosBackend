@@ -295,13 +295,13 @@ const createProductTable = () => {
   const createTableQuery = `
     CREATE TABLE IF NOT EXISTS products (
       id INT AUTO_INCREMENT PRIMARY KEY,
-      productId VARCHAR(255) NOT NULL,
-      productName VARCHAR(255) NOT NULL,
+      productId VARCHAR(1000) NOT NULL,
+      productName VARCHAR(1000) NOT NULL,
       productNameSinhala VARCHAR(255),
       barcode VARCHAR(255),
       batchNumber VARCHAR(255),
-      selectedSupplier VARCHAR(255),
-      selectedCategory VARCHAR(255),
+      selectedSupplier VARCHAR(1000),
+      selectedCategory VARCHAR(1000),
       selectedUnit VARCHAR(255),
       manufacturingDate DATE,
       expiringDate DATE,
@@ -313,11 +313,11 @@ const createProductTable = () => {
       discountPercentage DECIMAL(5, 2),
       wholesalePrice DECIMAL(10, 2),
       wholesalePercentage DECIMAL(5, 2),
-      lockedPrice DECIMAL(10, 2),
-      availableStock INT,
-      stockAlert INT,
-      store VARCHAR(255),
-      user VARCHAR(255),
+      lockedPrice DECIMAL(10,2),
+      availableStock DECIMAL(10,2),
+      stockAlert DECIMAL(10,2),
+      store VARCHAR(500),
+      user VARCHAR(500),
       saveTime DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
   `;
@@ -1375,7 +1375,7 @@ app.post('/api/create_product', (req, res) => {
     wholesalePrice,
     wholesalePercentage,
     lockedPrice,
-    availableStock,
+    openingBalance,
     stockAlert,
     store,
     user
@@ -1386,11 +1386,15 @@ app.post('/api/create_product', (req, res) => {
     return res.status(400).json({ message: 'Product ID, Product Name, Cost Price, and MRP Price are required fields.' });
   }
 
+  // Format dates to 'YYYY-MM-DD' format using moment.js
+  const formattedManufacturingDate = manufacturingDate ? moment(manufacturingDate).format('YYYY-MM-DD') : null;
+  const formattedExpiringDate = expiringDate ? moment(expiringDate).format('YYYY-MM-DD') : null;
+
   const insertProductQuery = `
     INSERT INTO products 
     (productId, productName, productNameSinhala, barcode, batchNumber, selectedSupplier, selectedCategory, selectedUnit, 
      manufacturingDate, expiringDate, costPrice, mrpPrice, profitPercentage, profitAmount, discountPrice, discountPercentage, 
-     wholesalePrice, wholesalePercentage, lockedPrice, availableStock, stockAlert, store, user)
+     wholesalePrice, wholesalePercentage, lockedPrice, openingBalance, stockAlert, store, user)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
@@ -1403,8 +1407,8 @@ app.post('/api/create_product', (req, res) => {
     selectedSupplier,
     selectedCategory,
     selectedUnit,
-    manufacturingDate,
-    expiringDate,
+    formattedManufacturingDate,
+    formattedExpiringDate,
     costPrice,
     mrpPrice,
     profitPercentage,
@@ -1414,7 +1418,7 @@ app.post('/api/create_product', (req, res) => {
     wholesalePrice,
     wholesalePercentage,
     lockedPrice,
-    availableStock,
+    openingBalance,
     stockAlert,
     store,
     user
