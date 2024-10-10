@@ -314,7 +314,7 @@ const createProductTable = () => {
       wholesalePrice DECIMAL(10, 2),
       wholesalePercentage DECIMAL(5, 2),
       lockedPrice DECIMAL(10,2),
-      availableStock DECIMAL(10,2),
+      openingBalance DECIMAL(10,2),
       stockAlert DECIMAL(10,2),
       store VARCHAR(500),
       user VARCHAR(500),
