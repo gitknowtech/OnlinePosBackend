@@ -1434,6 +1434,27 @@ app.post('/api/create_product', (req, res) => {
   });
 });
 
+//check id already exists
+app.get('/api/check_product_id/:productId', async (req, res) => {
+  const { productId } = req.params;
+
+  try {
+    // Query to check if the productId exists
+    const query = 'SELECT COUNT(*) AS count FROM products WHERE productId = ?';
+    db.query(query, [productId], (err, results) => {
+      if (err) {
+        return res.status(500).json({ message: 'Error checking Product ID', error: err });
+      }
+
+      const exists = results[0].count > 0;
+      return res.json({ exists }); // Send response whether the productId exists or not
+    });
+  } catch (error) {
+    return res.status(500).json({ message: 'Error checking Product ID', error });
+  }
+});
+
+
 
 // Start the server
 const PORT = 5000;
