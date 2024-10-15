@@ -290,7 +290,6 @@ const createStoresTable = () => {
   });
 };
 
-
 const createProductTable = () => {
   const createTableQuery = `
     CREATE TABLE IF NOT EXISTS products (
@@ -318,6 +317,7 @@ const createProductTable = () => {
       stockAlert DECIMAL(10,2),
       store VARCHAR(500),
       user VARCHAR(500),
+      status VARCHAR(10),  -- Adding the status column here
       saveTime DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
   `;
@@ -330,7 +330,6 @@ const createProductTable = () => {
     }
   });
 };
-
 
 
 // Create batches table
@@ -1353,7 +1352,6 @@ app.put('/api/update_batch/:id', (req, res) => {
 });
 
 
-// Create product API
 app.post('/api/create_product', (req, res) => {
   const {
     productId,
@@ -1378,7 +1376,8 @@ app.post('/api/create_product', (req, res) => {
     openingBalance,
     stockAlert,
     store,
-    user
+    user,
+    status // Add the status field here
   } = req.body;
 
   // Check for required fields
@@ -1394,8 +1393,8 @@ app.post('/api/create_product', (req, res) => {
     INSERT INTO products 
     (productId, productName, productNameSinhala, barcode, batchNumber, selectedSupplier, selectedCategory, selectedUnit, 
      manufacturingDate, expiringDate, costPrice, mrpPrice, profitPercentage, profitAmount, discountPrice, discountPercentage, 
-     wholesalePrice, wholesalePercentage, lockedPrice, openingBalance, stockAlert, store, user)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     wholesalePrice, wholesalePercentage, lockedPrice, openingBalance, stockAlert, store, user, status) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
   const values = [
@@ -1421,8 +1420,10 @@ app.post('/api/create_product', (req, res) => {
     openingBalance,
     stockAlert,
     store,
-    user
+    user,
+    status // Add status to the values array
   ];
+
 
   db.query(insertProductQuery, values, (err, result) => {
     if (err) {
