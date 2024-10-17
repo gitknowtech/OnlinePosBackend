@@ -5,10 +5,16 @@ const path = require('path');
 const fs = require('fs');
 const db = require('../OnlinePosBackend/db'); 
 const moment = require('moment'); 
+const productRoutes = require('./routes/products')
+
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+
+//use the routes
+app.use('/api/products', productRoutes)
 
 // Check if the uploads directory exists, if not, create it
 const uploadDir = 'uploads/';
@@ -290,46 +296,7 @@ const createStoresTable = () => {
   });
 };
 
-const createProductTable = () => {
-  const createTableQuery = `
-    CREATE TABLE IF NOT EXISTS products (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      productId VARCHAR(1000) NOT NULL,
-      productName VARCHAR(1000) NOT NULL,
-      productNameSinhala VARCHAR(255),
-      barcode VARCHAR(255),
-      batchNumber VARCHAR(255),
-      selectedSupplier VARCHAR(1000),
-      selectedCategory VARCHAR(1000),
-      selectedUnit VARCHAR(255),
-      manufacturingDate DATE,
-      expiringDate DATE,
-      costPrice DECIMAL(10, 2),
-      mrpPrice DECIMAL(10, 2),
-      profitPercentage DECIMAL(5, 2),
-      profitAmount DECIMAL(10, 2),
-      discountPrice DECIMAL(10, 2),
-      discountPercentage DECIMAL(5, 2),
-      wholesalePrice DECIMAL(10, 2),
-      wholesalePercentage DECIMAL(5, 2),
-      lockedPrice DECIMAL(10,2),
-      openingBalance DECIMAL(10,2),
-      stockAlert DECIMAL(10,2),
-      store VARCHAR(500),
-      user VARCHAR(500),
-      status VARCHAR(10),  -- Adding the status column here
-      saveTime DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-    )
-  `;
 
-  db.query(createTableQuery, (err, result) => {
-    if (err) {
-      console.error("Error creating products table:", err);
-    } else {
-      console.log("Products table exists or created successfully");
-    }
-  });
-};
 
 
 // Create batches table
@@ -369,7 +336,6 @@ createBankTable();
 createSuppliersTable();
 createBankSupplierTable();
 createStoresTable();
-createProductTable();
 createBatchesTable();
 
 
@@ -1026,10 +992,19 @@ app.delete("/api/delete_supplier_removed/:supId", (req, res) => {
 app.delete("/api/delete_supplier/:supId", (req, res) => {
   const { supId } = req.params;
 
+  // Log the supId to ensure it's coming through correctly
+  console.log('Received supId:', supId);
+
   // Query to get supplier data before deletion
   const selectSupplierQuery = `SELECT * FROM suppliers WHERE Supid = ?`;
   db.query(selectSupplierQuery, [supId], (err, supplierResult) => {
-    if (err || supplierResult.length === 0) {
+    if (err) {
+      console.error('Error selecting supplier:', err);
+      return res.status(500).json({ message: "Error selecting supplier", error: err });
+    }
+
+    if (supplierResult.length === 0) {
+      console.log(`Supplier with Supid ${supId} not found`);
       return res.status(404).json({ message: "Supplier not found" });
     }
 
@@ -1063,14 +1038,16 @@ app.delete("/api/delete_supplier/:supId", (req, res) => {
       ],
       (err) => {
         if (err) {
-          return res.status(500).json({ message: "Error saving deleted supplier data" });
+          console.error('Error saving deleted supplier data:', err);
+          return res.status(500).json({ message: "Error saving deleted supplier data", error: err });
         }
 
         // Check if bank details exist for the supplier
         const selectBankSupplierQuery = `SELECT * FROM banksupplier WHERE supId = ?`;
         db.query(selectBankSupplierQuery, [supId], (err, bankResult) => {
           if (err) {
-            return res.status(500).json({ message: "Error fetching bank details" });
+            console.error('Error fetching bank details:', err);
+            return res.status(500).json({ message: "Error fetching bank details", error: err });
           }
 
           if (bankResult.length > 0) {
@@ -1086,21 +1063,24 @@ app.delete("/api/delete_supplier/:supId", (req, res) => {
               [bankData.supId, bankData.supName, bankData.supBank, bankData.supBankNo],
               (err) => {
                 if (err) {
-                  return res.status(500).json({ message: "Error saving deleted bank details" });
+                  console.error('Error saving deleted bank details:', err);
+                  return res.status(500).json({ message: "Error saving deleted bank details", error: err });
                 }
 
                 // Delete supplier from suppliers table
                 const deleteSupplierQuery = `DELETE FROM suppliers WHERE Supid = ?`;
                 db.query(deleteSupplierQuery, [supId], (err) => {
                   if (err) {
-                    return res.status(500).json({ message: "Error deleting supplier" });
+                    console.error('Error deleting supplier:', err);
+                    return res.status(500).json({ message: "Error deleting supplier", error: err });
                   }
 
                   // Delete bank details from banksupplier table
                   const deleteBankSupplierQuery = `DELETE FROM banksupplier WHERE supId = ?`;
                   db.query(deleteBankSupplierQuery, [supId], (err) => {
                     if (err) {
-                      return res.status(500).json({ message: "Error deleting bank details" });
+                      console.error('Error deleting bank details:', err);
+                      return res.status(500).json({ message: "Error deleting bank details", error: err });
                     }
                     res.status(200).json({ message: "Supplier and bank details deleted successfully" });
                   });
@@ -1112,7 +1092,8 @@ app.delete("/api/delete_supplier/:supId", (req, res) => {
             const deleteSupplierQuery = `DELETE FROM suppliers WHERE Supid = ?`;
             db.query(deleteSupplierQuery, [supId], (err) => {
               if (err) {
-                return res.status(500).json({ message: "Error deleting supplier" });
+                console.error('Error deleting supplier:', err);
+                return res.status(500).json({ message: "Error deleting supplier", error: err });
               }
               res.status(200).json({ message: "Supplier deleted successfully without bank details" });
             });
@@ -1352,108 +1333,6 @@ app.put('/api/update_batch/:id', (req, res) => {
 });
 
 
-app.post('/api/create_product', (req, res) => {
-  const {
-    productId,
-    productName,
-    productNameSinhala,
-    barcode,
-    batchNumber,
-    selectedSupplier,
-    selectedCategory,
-    selectedUnit,
-    manufacturingDate,
-    expiringDate,
-    costPrice,
-    mrpPrice,
-    profitPercentage,
-    profitAmount,
-    discountPrice,
-    discountPercentage,
-    wholesalePrice,
-    wholesalePercentage,
-    lockedPrice,
-    openingBalance,
-    stockAlert,
-    store,
-    user,
-    status // Add the status field here
-  } = req.body;
-
-  // Check for required fields
-  if (!productId || !productName || !costPrice || !mrpPrice) {
-    return res.status(400).json({ message: 'Product ID, Product Name, Cost Price, and MRP Price are required fields.' });
-  }
-
-  // Format dates to 'YYYY-MM-DD' format using moment.js
-  const formattedManufacturingDate = manufacturingDate ? moment(manufacturingDate).format('YYYY-MM-DD') : null;
-  const formattedExpiringDate = expiringDate ? moment(expiringDate).format('YYYY-MM-DD') : null;
-
-  const insertProductQuery = `
-    INSERT INTO products 
-    (productId, productName, productNameSinhala, barcode, batchNumber, selectedSupplier, selectedCategory, selectedUnit, 
-     manufacturingDate, expiringDate, costPrice, mrpPrice, profitPercentage, profitAmount, discountPrice, discountPercentage, 
-     wholesalePrice, wholesalePercentage, lockedPrice, openingBalance, stockAlert, store, user, status) 
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `;
-
-  const values = [
-    productId,
-    productName,
-    productNameSinhala,
-    barcode,
-    batchNumber,
-    selectedSupplier,
-    selectedCategory,
-    selectedUnit,
-    formattedManufacturingDate,
-    formattedExpiringDate,
-    costPrice,
-    mrpPrice,
-    profitPercentage,
-    profitAmount,
-    discountPrice,
-    discountPercentage,
-    wholesalePrice,
-    wholesalePercentage,
-    lockedPrice,
-    openingBalance,
-    stockAlert,
-    store,
-    user,
-    status // Add status to the values array
-  ];
-
-
-  db.query(insertProductQuery, values, (err, result) => {
-    if (err) {
-      console.error('Error creating product:', err);
-      res.status(500).json({ message: 'Error creating product', error: err });
-    } else {
-      res.status(201).json({ message: 'Product created successfully!' });
-    }
-  });
-});
-
-//check id already exists
-app.get('/api/check_product_id/:productId', async (req, res) => {
-  const { productId } = req.params;
-
-  try {
-    // Query to check if the productId exists
-    const query = 'SELECT COUNT(*) AS count FROM products WHERE productId = ?';
-    db.query(query, [productId], (err, results) => {
-      if (err) {
-        return res.status(500).json({ message: 'Error checking Product ID', error: err });
-      }
-
-      const exists = results[0].count > 0;
-      return res.json({ exists }); // Send response whether the productId exists or not
-    });
-  } catch (error) {
-    return res.status(500).json({ message: 'Error checking Product ID', error });
-  }
-});
 
 
 
