@@ -9,7 +9,8 @@ const productRoutes = require('./routes/products')
 const companyRoute = require('./routes/company')
 const categoryRoute = require('./routes/category')
 const unitRoutes = require('./routes/unit')
-
+const storeRoutes = require('./routes/store')
+const batchRoutes = require('./routes/batch')
 
 const app = express();
 app.use(cors());
@@ -21,6 +22,11 @@ app.use('/api/products', productRoutes)
 app.use('/api/companies', companyRoute)
 app.use('/api/categories', categoryRoute)
 app.use('/api/units', unitRoutes)
+app.use('/api/stores', storeRoutes)
+app.use('/api/batches', batchRoutes)
+
+
+
 
 // Check if the uploads directory exists, if not, create it
 const uploadDir = 'uploads/';
@@ -41,30 +47,6 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-
-
-
-
-// Function to create the 'categories' table if it doesn't exist
-const createBankTable = () => {
-  const createTableQuery = `
-    CREATE TABLE IF NOT EXISTS banks (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      bankName VARCHAR(255) NOT NULL,
-      user VARCHAR(255) NOT NULL,
-      store VARCHAR(255) NOT NULL,
-      saveTime DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-    )
-  `;
-
-  db.query(createTableQuery, (err, result) => {
-    if (err) {
-      console.error('Error creating categories table:', err);
-    } else {
-      console.log('Categories table exists or created successfully');
-    }
-  });
-};
 
 
 
@@ -219,50 +201,6 @@ const createDeleteBankSupplierTable = () => {
 };
 
 
-const createStoresTable = () => {
-  const createTableQuery = `
-    CREATE TABLE IF NOT EXISTS stores (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      storeName VARCHAR(255) NOT NULL,
-      user VARCHAR(255) NOT NULL,
-      store VARCHAR(255) NOT NULL,
-      saveTime DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-    )
-  `;
-
-  db.query(createTableQuery, (err, result) => {
-    if (err) {
-      console.error('Error creating stores table:', err);
-    } else {
-      console.log('Stores table exists or created successfully');
-    }
-  });
-};
-
-
-
-
-// Create batches table
-const createBatchesTable = () => {
-  const createTableQuery = `
-    CREATE TABLE IF NOT EXISTS batches (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      batchName VARCHAR(255) NOT NULL,
-      user VARCHAR(255) NOT NULL,
-      store VARCHAR(255) NOT NULL,
-      saveTime DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-    )
-  `;
-
-  db.query(createTableQuery, (err, result) => {
-    if (err) {
-      console.error('Error creating batches table:', err);
-    } else {
-      console.log('Batches table exists or created successfully');
-    }
-  });
-};
-
 
 
 
@@ -272,11 +210,8 @@ const createBatchesTable = () => {
 createDeleteSuppliersTable();
 createDeleteBankSupplierTable();
 createUserTable();
-createBankTable();
 createSuppliersTable();
 createBankSupplierTable();
-createStoresTable();
-createBatchesTable();
 
 
 
@@ -445,64 +380,6 @@ app.post('/login', (req, res) => {
 });
 
 
-
-
-
-
-
-//bank databse data codes
-app.delete("/api/delete_bank", (req, res) => {
-  const { bankName } = req.body;
-
-  const deleteQuery = "DELETE FROM banks WHERE bankName = ?";
-
-  db.query(deleteQuery, [bankName], (err, result) => {
-    if (err) {
-      return res.status(500).json({ message: "Error deleting bank" });
-    }
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: "Bank not found" });
-    }
-
-    return res.status(200).json({ message: "Bank deleted successfully" });
-  });
-});
- 
-
-app.get("/api/get_banks", (req, res) => {
-  const query = "SELECT * FROM banks";
-  db.query(query, (err, results) => {
-    if (err) {
-      return res.status(500).json({ message: "Error fetching banks" });
-    }
-    return res.status(200).json(results);
-  });
-});
-
-
-app.post("/api/create_banks", (req, res) => {
-  const { id, bankName, user, store, saveTime } = req.body;
-
-  const insertQuery = "INSERT INTO banks (id, bankName, user, store, saveTime) VALUES (?, ?, ?, ?, ?)";
-
-  db.query(insertQuery, [id, bankName, user, store, saveTime], (err, result) => {
-    if (err) {
-      if (err.code === 'ER_DUP_ENTRY') {
-        return res.status(400).json({
-          message: "Duplicate ID",
-          error: err.message,
-          code: err.code,
-        });
-      }
-      return res.status(500).json({
-        message: "Error saving bank. Please try again.",
-        error: err.message,
-      });
-    }
-    return res.status(201).json({ message: "Bank added successfully" });
-  });
-});
 
 
 
@@ -834,173 +711,6 @@ app.get("/api/get_bank_details_removed/:supId", (req, res) => {
       return res.status(404).json({ message: "No bank details found for this supplier" });
     }
     return res.status(200).json(results[0]);
-  });
-});
-
-
-
-// Delete store
-app.delete("/api/delete_store/:storeId", (req, res) => {
-  const { storeId } = req.params;
-
-  const deleteQuery = "DELETE FROM stores WHERE id = ?";
-
-  db.query(deleteQuery, [storeId], (err, result) => {
-    if (err) {
-      console.error('Error deleting store from database:', err);
-      return res.status(500).json({ message: "Error deleting store" });
-    }
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: "Store not found" });
-    }
-
-    return res.status(200).json({ message: "Store deleted successfully" });
-  });
-});
-
-
-
-// Get all stores
-app.get("/api/get_stores", (req, res) => {
-  const query = "SELECT * FROM stores";
-  db.query(query, (err, results) => {
-    if (err) {
-      console.error('Error fetching stores:', err);
-      return res.status(500).json({ message: "Error fetching stores" });
-    }
-    return res.status(200).json(results);
-  });
-});
-
-
-// Create new store
-app.post("/api/create_store", (req, res) => {
-  const { storeName, user, store } = req.body;
-
-  const insertQuery = "INSERT INTO stores (storeName, user, store, saveTime) VALUES (?, ?, ?, NOW())";
-
-  db.query(insertQuery, [storeName, user, store], (err, result) => {
-    if (err) {
-      if (err.code === 'ER_DUP_ENTRY') {
-        return res.status(400).json({ message: "Duplicate store name" });
-      }
-
-      console.error('Error saving store to database:', err);
-      return res.status(500).json({ message: "Error saving store" });
-    }
-
-    return res.status(201).json({ message: "Store added successfully", id: result.insertId });
-  });
-});
-
-// Update store API
-app.put('/api/update_store/:id', (req, res) => {
-  const storeId = req.params.id; // Get the store ID from the URL parameters
-  const { storeName } = req.body; // Extract new store name from the request body
-
-  // Validation
-  if (!storeName) {
-    return res.status(400).json({ message: 'Store name is required' });
-  }
-
-  const query = 'UPDATE stores SET storeName = ? WHERE id = ?';
-  db.query(query, [storeName, storeId], (err, result) => {
-    if (err) {
-      console.error('Error updating store:', err);
-      return res.status(500).json({ message: 'Error updating store' });
-    }
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: 'Store not found' });
-    }
-
-    res.status(200).json({ message: `Store has been updated successfully.` });
-  });
-});
-
-
-
-// Get batches API
-app.get('/api/get_batches', (req, res) => {
-  const query = 'SELECT * FROM batches';
-  db.query(query, (err, results) => {
-    if (err) {
-      console.error('Error fetching batches:', err);
-      return res.status(500).json({ message: 'Error fetching batches' });
-    }
-    res.status(200).json(results);
-  });
-});
-
-
-// Create batch API
-app.post('/api/create_batches', (req, res) => {
-  const { batchName, user, store } = req.body;
-  
-  // Validation
-  if (!batchName || !user || !store) {
-    return res.status(400).json({ message: 'Batch name, user, and store are required' });
-  }
-
-  const query = 'INSERT INTO batches (batchName, user, store) VALUES (?, ?, ?)';
-  db.query(query, [batchName, user, store], (err, result) => {
-    if (err) {
-      console.error('Error creating batch:', err);
-      return res.status(500).json({ message: 'Error creating batch' });
-    }
-    res.status(201).json({ id: result.insertId, batchName, user, store });
-  });
-});
-
-
-// Delete batch API
-app.delete('/api/delete_batch', (req, res) => {
-  const { batchName } = req.body;
-
-  // Validation
-  if (!batchName) {
-    return res.status(400).json({ message: 'Batch name is required' });
-  }
-
-  const query = 'DELETE FROM batches WHERE batchName = ?';
-  db.query(query, [batchName], (err, result) => {
-    if (err) {
-      console.error('Error deleting batch:', err);
-      return res.status(500).json({ message: 'Error deleting batch' });
-    }
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: 'Batch not found' });
-    }
-
-    res.status(200).json({ message: `Batch "${batchName}" has been deleted successfully.` });
-  });
-});
-
-
-// Update batch API
-app.put('/api/update_batch/:id', (req, res) => {
-  const batchId = req.params.id; // Get the batch ID from the URL parameters
-  const { batchName } = req.body; // Extract new batch name from the request body
-
-  // Validation
-  if (!batchName) {
-    return res.status(400).json({ message: 'Batch name is required' });
-  }
-
-  const query = 'UPDATE batches SET batchName = ? WHERE id = ?';
-  db.query(query, [batchName, batchId], (err, result) => {
-    if (err) {
-      console.error('Error updating batch:', err);
-      return res.status(500).json({ message: 'Error updating batch' });
-    }
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: 'Batch not found' });
-    }
-
-    res.status(200).json({ message: `Batch has been updated successfully.` });
   });
 });
 
