@@ -6,6 +6,9 @@ const fs = require('fs');
 const db = require('../OnlinePosBackend/db'); 
 const moment = require('moment'); 
 const productRoutes = require('./routes/products')
+const companyRoute = require('./routes/company')
+const categoryRoute = require('./routes/category')
+const unitRoutes = require('./routes/unit')
 
 
 const app = express();
@@ -15,12 +18,16 @@ app.use(express.json());
 
 //use the routes
 app.use('/api/products', productRoutes)
+app.use('/api/companies', companyRoute)
+app.use('/api/categories', categoryRoute)
+app.use('/api/units', unitRoutes)
 
 // Check if the uploads directory exists, if not, create it
 const uploadDir = 'uploads/';
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir);
 }
+
 
 // Configure multer for handling file uploads
 const storage = multer.diskStorage({
@@ -61,27 +68,6 @@ const createBankTable = () => {
 
 
 
-// Function to create the 'companies' table if it doesn't exist
-const createCompaniesTable = () => {
-  const createTableQuery = `
-    CREATE TABLE IF NOT EXISTS companies (
-      Comid VARCHAR(255) PRIMARY KEY,
-      Comname VARCHAR(255) NOT NULL,
-      Mobile VARCHAR(15) NOT NULL,
-      Location VARCHAR(255) NOT NULL,
-      Email VARCHAR(255) NOT NULL,
-      Image VARCHAR(255)
-    )
-  `;
-
-  db.query(createTableQuery, (err, result) => {
-    if (err) {
-      console.error('Error creating companies table:', err);
-    } else {
-      console.log('Companies table exists or created successfully');
-    }
-  });
-};
 
 
 // Function to create the 'User' table if it doesn't exist
@@ -112,49 +98,6 @@ const createUserTable = () => {
 };
 
 
-// Function to create the 'categories' table if it doesn't exist
-const createCategoriesTable = () => {
-  const createTableQuery = `
-    CREATE TABLE IF NOT EXISTS categories (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      catName VARCHAR(255) NOT NULL,
-      user VARCHAR(255) NOT NULL,
-      store VARCHAR(255) NOT NULL,
-      saveTime DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-    )
-  `;
-
-  db.query(createTableQuery, (err, result) => {
-    if (err) {
-      console.error('Error creating categories table:', err);
-    } else {
-      console.log('Categories table exists or created successfully');
-    }
-  });
-};
-
-
-
-
-const createUnitsTable = () => {
-  const createTableQuery = `
-    CREATE TABLE IF NOT EXISTS units (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      unitName VARCHAR(255) NOT NULL,
-      user VARCHAR(255) NOT NULL,
-      store VARCHAR(255) NOT NULL,
-      saveTime DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-    )
-  `;
-
-  db.query(createTableQuery, (err, result) => {
-    if (err) {
-      console.error('Error creating units table:', err);
-    } else {
-      console.log('Units table exists or created successfully');
-    }
-  });
-};
 
 
 // Create suppliers table if it doesn't exist
@@ -328,9 +271,6 @@ const createBatchesTable = () => {
 
 createDeleteSuppliersTable();
 createDeleteBankSupplierTable();
-createUnitsTable();
-createCategoriesTable();
-createCompaniesTable();
 createUserTable();
 createBankTable();
 createSuppliersTable();
@@ -402,63 +342,6 @@ app.post('/create-admin', upload.single('Image'), async (req, res) => {
     console.error('Error during hashing or database query:', err); // Log detailed error
     res.status(500).json({ error: err.message || 'Server error' }); // Return a detailed error message
   }
-});
-
-
-
-
-// POST route to handle form data and file upload
-app.post('/companies', upload.single('Image'), (req, res) => {
-  const { Comid, Comname, Mobile, Location, Email } = req.body; // Added email
-  const imagePath = req.file ? req.file.path : null; // Get file path
-
-  // Check if the company already exists in the database
-  const checkQuery = `SELECT * FROM companies WHERE Comid = ?`;
-
-  db.query(checkQuery, [Comid], (checkErr, checkResult) => {
-    if (checkErr) {
-      return res.status(500).json({ error: 'Database error occurred' });
-    }
-
-    // If company with the same Comid exists, return an error
-    if (checkResult.length > 0) {
-      return res.status(400).json({ error: 'Company with this ID already exists' });
-    }
-
-    // If the company does not exist, proceed with inserting the new company
-    const insertQuery = `
-      INSERT INTO companies (Comid, Comname, Mobile, Location, Email, Image)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `;
-
-    db.query(insertQuery, [Comid, Comname, Mobile, Location, Email, imagePath], (err, result) => {
-      if (err) {
-        return res.status(500).json({ error: 'Error saving company data' });
-      }
-      res.status(200).json({ message: 'Company added successfully', id: result.insertId });
-    });
-  });
-});
-
-
-
-
-// New route to check if the companies table has any data
-app.get('/check-companies', (req, res) => {
-  const checkQuery = `SELECT COUNT(*) as count FROM companies`;
-
-  db.query(checkQuery, (err, result) => {
-    if (err) {
-      return res.status(500).json({ error: 'Database error occurred' });
-    }
-
-    const count = result[0].count;
-    if (count > 0) {
-      res.status(200).json({ hasData: true });
-    } else {
-      res.status(200).json({ hasData: false });
-    }
-  });
 });
 
 
@@ -564,218 +447,7 @@ app.post('/login', (req, res) => {
 
 
 
-//add category for the table
-app.post("/api/create_categories", (req, res) => {
-  const { id, catName, user, store, saveTime } = req.body;
 
-  const insertQuery = "INSERT INTO categories (id, catName, user, store, saveTime) VALUES (?, ?, ?, ?, ?)";
-
-  db.query(insertQuery, [id, catName, user, store, saveTime], (err, result) => {
-    if (err) {
-      // Handle duplicate entry error (MySQL error code 1062)
-      if (err.code === 'ER_DUP_ENTRY') {
-        console.error('Duplicate ID detected:', err);
-        return res.status(400).json({ 
-          message: "Duplicate ID",
-          error: err.message || 'Duplicate ID error',
-          code: err.code || 'No code',
-          errno: err.errno || 'No errno'
-        });
-      }
-
-      // Log other MySQL errors
-      console.error('Error saving category to database:', err);
-      return res.status(500).json({ 
-        message: "Error saving category. Please try again.", 
-        error: err.message || 'Unknown error', 
-        sqlMessage: err.sqlMessage || 'No SQL message', 
-        code: err.code || 'No code', 
-        errno: err.errno || 'No errno'
-      });
-    }
-
-    return res.status(201).json({ message: "Category added successfully" });
-  });
-});
-
-
-
-
-// Fetch all categories from the database
-app.get("/api/get_categories", (req, res) => {
-  const query = "SELECT * FROM categories";
-  db.query(query, (err, results) => {
-    if (err) {
-      console.error('Error fetching categories:', err);
-      return res.status(500).json({ message: "Error fetching categories" });
-    }
-    return res.status(200).json(results);
-  });
-});
-
-
-// API to update the category by categoryId
-app.put('/api/update_category/:categoryId', (req, res) => {
-  const { categoryId } = req.params;
-  const { catName } = req.body;
-
-  // Check if category name is provided
-  if (!catName || catName.trim() === '') {
-    return res.status(400).json({ message: 'Category name cannot be empty' });
-  }
-
-  // Check if category name already exists (ignore case)
-  const checkDuplicateQuery = `SELECT * FROM categories WHERE LOWER(catName) = LOWER(?) AND id != ?`;
-  db.query(checkDuplicateQuery, [catName, categoryId], (err, result) => {
-    if (err) {
-      return res.status(500).json({ message: 'Error checking for duplicate category' });
-    }
-
-    if (result.length > 0) {
-      return res.status(400).json({ message: 'Category name already exists' });
-    }
-
-    // Update category name in the database
-    const updateCategoryQuery = `UPDATE categories SET catName = ? WHERE id = ?`;
-    db.query(updateCategoryQuery, [catName, categoryId], (err, result) => {
-      if (err) {
-        return res.status(500).json({ message: 'Error updating category' });
-      }
-
-      if (result.affectedRows === 0) {
-        return res.status(404).json({ message: 'Category not found' });
-      }
-
-      res.status(200).json({ message: 'Category updated successfully' });
-    });
-  });
-});
-
-
-
-app.delete("/api/delete_category", (req, res) => {
-  const { catName } = req.body;
-
-  const deleteQuery = "DELETE FROM categories WHERE catName = ?";
-
-  db.query(deleteQuery, [catName], (err, result) => {
-    if (err) {
-      console.error('Error deleting category from database:', err);
-      return res.status(500).json({ message: "Error deleting category" });
-    }
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: "Category not found" });
-    }
-
-    return res.status(200).json({ message: "Category deleted successfully" });
-  });
-});
-
-
-
-
-app.delete("/api/delete_unit", (req, res) => {
-  const { unitName } = req.body;
-
-  const deleteQuery = "DELETE FROM units WHERE unitName = ?";
-
-  db.query(deleteQuery, [unitName], (err, result) => {
-    if (err) {
-      console.error('Error deleting unit from database:', err);
-      return res.status(500).json({ message: "Error deleting unit" });
-    }
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: "Unit not found" });
-    }
-
-    return res.status(200).json({ message: "Unit deleted successfully" });
-  });
-});
-
-
-app.put('/api/update_unit/:unitId', (req, res) => {
-  const { unitId } = req.params;
-  const { unitName } = req.body;
-
-  if (!unitName || unitName.trim() === '') {
-    return res.status(400).json({ message: 'Unit name cannot be empty' });
-  }
-
-  // Check for duplicate unit name
-  const checkDuplicateQuery = `SELECT * FROM units WHERE LOWER(unitName) = LOWER(?) AND id != ?`;
-  db.query(checkDuplicateQuery, [unitName, unitId], (err, result) => {
-    if (err) {
-      return res.status(500).json({ message: 'Error checking for duplicate unit' });
-    }
-
-    if (result.length > 0) {
-      return res.status(400).json({ message: 'Unit name already exists' });
-    }
-
-    // Update the unit in the database
-    const updateUnitQuery = `UPDATE units SET unitName = ? WHERE id = ?`;
-    db.query(updateUnitQuery, [unitName, unitId], (err, result) => {
-      if (err) {
-        return res.status(500).json({ message: 'Error updating unit' });
-      }
-
-      if (result.affectedRows === 0) {
-        return res.status(404).json({ message: 'Unit not found' });
-      }
-
-      res.status(200).json({ message: 'Unit updated successfully' });
-    });
-  });
-});
-
-
-
-app.get("/api/get_units", (req, res) => {
-  const query = "SELECT * FROM units";
-  db.query(query, (err, results) => {
-    if (err) {
-      console.error('Error fetching units:', err);
-      return res.status(500).json({ message: "Error fetching units" });
-    }
-    return res.status(200).json(results);
-  });
-});
-
-
-app.post("/api/create_units", (req, res) => {
-  const { id, unitName, user, store, saveTime } = req.body;
-
-  const insertQuery = "INSERT INTO units (id, unitName, user, store, saveTime) VALUES (?, ?, ?, ?, ?)";
-
-  db.query(insertQuery, [id, unitName, user, store, saveTime], (err, result) => {
-    if (err) {
-      // Handle duplicate entry error (MySQL error code 1062)
-      if (err.code === 'ER_DUP_ENTRY') {
-        console.error('Duplicate ID detected:', err);
-        return res.status(400).json({ 
-          message: "Duplicate ID",
-          error: err.message || 'Duplicate ID error',
-          code: err.code || 'No code',
-          errno: err.errno || 'No errno'
-        });
-      }
-
-      // Log other MySQL errors
-      console.error('Error saving unit to database:', err);
-      return res.status(500).json({ 
-        message: "Error saving unit. Please try again.", 
-        error: err.message || 'Unknown error', 
-        sqlMessage: err.sqlMessage || 'No SQL message', 
-        code: err.code || 'No code', 
-        errno: err.errno || 'No errno'
-      });
-    }
-
-    return res.status(201).json({ message: "Unit added successfully" });
-  });
-});
 
 
 //bank databse data codes
