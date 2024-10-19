@@ -11,6 +11,7 @@ const categoryRoute = require('./routes/category')
 const unitRoutes = require('./routes/unit')
 const storeRoutes = require('./routes/store')
 const batchRoutes = require('./routes/batch')
+const bankRoutes = require('./routes/bank')
 
 const app = express();
 app.use(cors());
@@ -24,6 +25,7 @@ app.use('/api/categories', categoryRoute)
 app.use('/api/units', unitRoutes)
 app.use('/api/stores', storeRoutes)
 app.use('/api/batches', batchRoutes)
+app.use('/api/banks', bankRoutes)
 
 
 
@@ -281,7 +283,7 @@ app.post('/create-admin', upload.single('Image'), async (req, res) => {
 
 
 
-app.get('/check-duplicate', (req, res) => {
+app.get('/supplier_check-duplicate', (req, res) => {
   const { Email, UserName } = req.query;
 
   const emailCheckQuery = `SELECT COUNT(*) as emailCount FROM users WHERE Email = ?`;
@@ -536,7 +538,7 @@ app.delete("/api/delete_supplier_removed/:supId", (req, res) => {
 });
 
 
-
+/*
 // API to delete supplier and save deleted details
 app.delete("/api/delete_supplier/:supId", (req, res) => {
   const { supId } = req.params;
@@ -546,6 +548,124 @@ app.delete("/api/delete_supplier/:supId", (req, res) => {
 
   // Query to get supplier data before deletion
   const selectSupplierQuery = `SELECT * FROM suppliers WHERE Supid = ?`;
+  db.query(selectSupplierQuery, [supId], (err, supplierResult) => {
+    if (err) {
+      console.error('Error selecting supplier:', err);
+      return res.status(500).json({ message: "Error selecting supplier", error: err });
+    }
+
+    if (supplierResult.length === 0) {
+      console.log(`Supplier with Supid ${supId} not found`);
+      return res.status(404).json({ message: "Supplier not found" });
+    }
+
+    const supplierData = supplierResult[0];
+
+    // Save supplier data to delete_suppliers table
+    const insertDeleteSupplierQuery = `
+      INSERT INTO delete_suppliers 
+      (Supid, Supname, address1, address2, address3, email, idno, mobile1, mobile2, mobile3, company, faxnum, website, status, user, store) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+    db.query(
+      insertDeleteSupplierQuery,
+      [
+        supplierData.Supid,
+        supplierData.Supname,
+        supplierData.address1,
+        supplierData.address2,
+        supplierData.address3,
+        supplierData.email,
+        supplierData.idno,
+        supplierData.mobile1,
+        supplierData.mobile2,
+        supplierData.mobile3,
+        supplierData.company,
+        supplierData.faxnum,
+        supplierData.website,
+        supplierData.status,
+        supplierData.user,
+        supplierData.store,
+      ],
+      (err) => {
+        if (err) {
+          console.error('Error saving deleted supplier data:', err);
+          return res.status(500).json({ message: "Error saving deleted supplier data", error: err });
+        }
+
+        // Check if bank details exist for the supplier
+        const selectBankSupplierQuery = `SELECT * FROM banksupplier WHERE supId = ?`;
+        db.query(selectBankSupplierQuery, [supId], (err, bankResult) => {
+          if (err) {
+            console.error('Error fetching bank details:', err);
+            return res.status(500).json({ message: "Error fetching bank details", error: err });
+          }
+
+          if (bankResult.length > 0) {
+            const bankData = bankResult[0];
+
+            // Save bank details to delete_bank_supplier table
+            const insertDeleteBankSupplierQuery = `
+              INSERT INTO delete_bank_supplier (supId, supName, supBank, supBankNo) 
+              VALUES (?, ?, ?, ?)
+            `;
+            db.query(
+              insertDeleteBankSupplierQuery,
+              [bankData.supId, bankData.supName, bankData.supBank, bankData.supBankNo],
+              (err) => {
+                if (err) {
+                  console.error('Error saving deleted bank details:', err);
+                  return res.status(500).json({ message: "Error saving deleted bank details", error: err });
+                }
+
+                // Delete supplier from suppliers table
+                const deleteSupplierQuery = `DELETE FROM suppliers WHERE Supid = ?`;
+                db.query(deleteSupplierQuery, [supId], (err) => {
+                  if (err) {
+                    console.error('Error deleting supplier:', err);
+                    return res.status(500).json({ message: "Error deleting supplier", error: err });
+                  }
+
+                  // Delete bank details from banksupplier table
+                  const deleteBankSupplierQuery = `DELETE FROM banksupplier WHERE supId = ?`;
+                  db.query(deleteBankSupplierQuery, [supId], (err) => {
+                    if (err) {
+                      console.error('Error deleting bank details:', err);
+                      return res.status(500).json({ message: "Error deleting bank details", error: err });
+                    }
+                    res.status(200).json({ message: "Supplier and bank details deleted successfully" });
+                  });
+                });
+              }
+            );
+          } else {
+            // If no bank details, just delete the supplier from suppliers table
+            const deleteSupplierQuery = `DELETE FROM suppliers WHERE Supid = ?`;
+            db.query(deleteSupplierQuery, [supId], (err) => {
+              if (err) {
+                console.error('Error deleting supplier:', err);
+                return res.status(500).json({ message: "Error deleting supplier", error: err });
+              }
+              res.status(200).json({ message: "Supplier deleted successfully without bank details" });
+            });
+          }
+        });
+      }
+    );
+  });
+});
+*/
+
+
+// API to delete supplier and save deleted details
+app.delete("/api/delete_supplier/:supId", (req, res) => {
+  const { supId } = req.params;
+
+  // Log the supId to ensure it's coming through correctly
+  console.log('Received supId:', supId);
+
+  // Query to get supplier data before deletion
+  const selectSupplierQuery = `SELECT LENGTH(Supid), Supid FROM suppliers WHERE Supid = ?`;
   db.query(selectSupplierQuery, [supId], (err, supplierResult) => {
     if (err) {
       console.error('Error selecting supplier:', err);

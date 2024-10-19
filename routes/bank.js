@@ -83,3 +83,6 @@ router.post("/create_banks", (req, res) => {
     }
   );
 });
+
+
+module.exports = router;
