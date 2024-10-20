@@ -50,6 +50,8 @@ const createProductTable = () => {
   });
 };
 
+
+
 // Create `opening_balance_table` to store opening balance separately
 const createOpeningBalanceTable = () => {
   const createTableQuery = `
@@ -70,6 +72,7 @@ const createOpeningBalanceTable = () => {
     }
   });
 };
+
 
 
 // Call both table creation functions
@@ -155,6 +158,9 @@ router.post('/create_product', (req, res) => {
     imageLink
   ];
 
+
+
+
   // Insert into the products table
   db.query(insertProductQuery, productValues, (err, result) => {
     if (err) {
@@ -200,5 +206,77 @@ router.get('/check_product_id/:productId', (req, res) => {
     return res.json({ exists });
   });
 });
+
+
+
+// API to fetch all products with optional filtering and pagination
+router.get('/fetch_products', (req, res) => {
+  const { store, status, searchTerm } = req.query;
+
+  let query = `SELECT * FROM products WHERE 1=1`;
+  let queryParams = [];
+
+  if (store && store !== 'all') {
+    query += ` AND (store = ? OR store = 'all')`;
+    queryParams.push(store);
+  }
+
+  if (status) {
+    query += ` AND status = ?`;
+    queryParams.push(status);
+  }
+
+  if (searchTerm) {
+    query += ` AND (productId LIKE ? OR productName LIKE ? OR productNameSinhala LIKE ?)`;
+    queryParams.push(`%${searchTerm}%`, `%${searchTerm}%`, `%${searchTerm}%`);
+  }
+
+  db.query(query, queryParams, (err, results) => {
+    if (err) {
+      console.error('Error fetching products:', err);
+      return res.status(500).json({ message: 'Error fetching products', error: err });
+    }
+
+    res.json(results);
+  });
+});
+
+
+
+
+// API to delete product by productId
+router.delete('/delete_product/:productId', (req, res) => {
+  const { productId } = req.params;
+
+  const deleteProductQuery = `DELETE FROM products WHERE productId = ?`;
+  const deleteOpeningBalanceQuery = `DELETE FROM opening_balance_table WHERE productId = ?`;
+
+  db.query(deleteProductQuery, [productId], (err, result) => {
+    if (err) {
+      console.error('Error deleting product:', err);
+      return res.status(500).json({ message: 'Error deleting product', error: err });
+    }
+
+    // After deleting from products table, delete the opening balance for that product
+    db.query(deleteOpeningBalanceQuery, [productId], (err, result) => {
+      if (err) {
+        console.error('Error deleting opening balance:', err);
+        return res.status(500).json({ message: 'Error deleting opening balance', error: err });
+      }
+
+      res.status(200).json({ message: 'Product and opening balance deleted successfully!' });
+    });
+  });
+});
+
+
+
+
+
+
+
+
+
+
 
 module.exports = router;
