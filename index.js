@@ -384,9 +384,6 @@ app.post('/login', (req, res) => {
 
 
 
-
-
-
 // API to create supplier and save bank details
 app.post("/api/create_supplier", (req, res) => {
   const {
@@ -410,50 +407,66 @@ app.post("/api/create_supplier", (req, res) => {
     accountNumber,
   } = req.body;
 
+  // Validate required fields
   if (!Supid || !Supname) {
     return res.status(400).json({ message: "Supplier ID and Supplier Name are required." });
   }
 
-  const insertSupplierQuery = `
-    INSERT INTO suppliers 
-    (Supid, Supname, address1, address2, address3, email, idno, mobile1, mobile2, mobile3, company, faxnum, website, status, user, store) 
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  // Check for duplicate supplier (by Supid or Supname)
+  const checkDuplicateSupplierQuery = `
+    SELECT * FROM suppliers WHERE Supid = ? OR Supname = ?
   `;
-
-  db.query(
-    insertSupplierQuery,
-    [Supid, Supname, address1, address2, address3, email, idno, mobile1, mobile2, mobile3, company, faxnum, website, status, user, store],
-    (err, result) => {
-      if (err) {
-        if (err.code === "ER_DUP_ENTRY") {
-          return res.status(400).json({ message: "Duplicate Supplier ID" });
-        }
-        return res.status(500).json({ message: "Error saving supplier." });
-      }
-
-      // Only save to banksupplier if account number is provided
-      if (accountNumber && bankName) {
-        const insertBankSupplierQuery = `
-          INSERT INTO banksupplier (supId, supName, supBank, supBankNo) 
-          VALUES (?, ?, ?, ?)
-        `;
-        db.query(
-          insertBankSupplierQuery,
-          [Supid, Supname, bankName, accountNumber],
-          (err) => {
-            if (err) {
-              return res.status(500).json({ message: "Error saving supplier bank details." });
-            }
-            res.status(201).json({ message: "Supplier and bank details added successfully" });
-          }
-        );
-      } else {
-        // If no bank details, just return a success response for supplier data
-        res.status(201).json({ message: "Supplier added successfully without bank details" });
-      }
+  db.query(checkDuplicateSupplierQuery, [Supid, Supname], (err, results) => {
+    if (err) {
+      return res.status(500).json({ message: "Error checking for duplicate supplier." });
     }
-  );
+
+    if (results.length > 0) {
+      return res.status(400).json({ message: "Supplier ID or Supplier Name already exists." });
+    }
+
+    // Insert supplier data into 'suppliers' table
+    const insertSupplierQuery = `
+      INSERT INTO suppliers 
+      (Supid, Supname, address1, address2, address3, email, idno, mobile1, mobile2, mobile3, company, faxnum, website, status, user, store) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+    db.query(
+      insertSupplierQuery,
+      [Supid, Supname, address1, address2, address3, email, idno, mobile1, mobile2, mobile3, company, faxnum, website, status, user, store],
+      (err, result) => {
+        if (err) {
+          if (err.code === "ER_DUP_ENTRY") {
+            return res.status(400).json({ message: "Duplicate Supplier ID." });
+          }
+          return res.status(500).json({ message: "Error saving supplier." });
+        }
+
+        // Only save to banksupplier if account number and bank name are provided
+        if (accountNumber && bankName) {
+          const insertBankSupplierQuery = `
+            INSERT INTO banksupplier (supId, supName, supBank, supBankNo) 
+            VALUES (?, ?, ?, ?)
+          `;
+          db.query(
+            insertBankSupplierQuery,
+            [Supid, Supname, bankName, accountNumber],
+            (err) => {
+              if (err) {
+                return res.status(500).json({ message: "Error saving supplier bank details." });
+              }
+              return res.status(201).json({ message: "Supplier and bank details added successfully." });
+            }
+          );
+        } else {
+          // If no bank details, return success response for supplier data only
+          return res.status(201).json({ message: "Supplier added successfully without bank details." });
+        }
+      }
+    );
+  });
 });
+
 
 
 
@@ -538,7 +551,7 @@ app.delete("/api/delete_supplier_removed/:supId", (req, res) => {
 });
 
 
-/*
+
 // API to delete supplier and save deleted details
 app.delete("/api/delete_supplier/:supId", (req, res) => {
   const { supId } = req.params;
@@ -654,124 +667,20 @@ app.delete("/api/delete_supplier/:supId", (req, res) => {
     );
   });
 });
-*/
 
 
-// API to delete supplier and save deleted details
-app.delete("/api/delete_supplier/:supId", (req, res) => {
-  const { supId } = req.params;
-
-  // Log the supId to ensure it's coming through correctly
-  console.log('Received supId:', supId);
-
-  // Query to get supplier data before deletion
-  const selectSupplierQuery = `SELECT LENGTH(Supid), Supid FROM suppliers WHERE Supid = ?`;
-  db.query(selectSupplierQuery, [supId], (err, supplierResult) => {
-    if (err) {
-      console.error('Error selecting supplier:', err);
-      return res.status(500).json({ message: "Error selecting supplier", error: err });
-    }
-
-    if (supplierResult.length === 0) {
-      console.log(`Supplier with Supid ${supId} not found`);
-      return res.status(404).json({ message: "Supplier not found" });
-    }
-
-    const supplierData = supplierResult[0];
-
-    // Save supplier data to delete_suppliers table
-    const insertDeleteSupplierQuery = `
-      INSERT INTO delete_suppliers 
-      (Supid, Supname, address1, address2, address3, email, idno, mobile1, mobile2, mobile3, company, faxnum, website, status, user, store) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
-    db.query(
-      insertDeleteSupplierQuery,
-      [
-        supplierData.Supid,
-        supplierData.Supname,
-        supplierData.address1,
-        supplierData.address2,
-        supplierData.address3,
-        supplierData.email,
-        supplierData.idno,
-        supplierData.mobile1,
-        supplierData.mobile2,
-        supplierData.mobile3,
-        supplierData.company,
-        supplierData.faxnum,
-        supplierData.website,
-        supplierData.status,
-        supplierData.user,
-        supplierData.store,
-      ],
-      (err) => {
-        if (err) {
-          console.error('Error saving deleted supplier data:', err);
-          return res.status(500).json({ message: "Error saving deleted supplier data", error: err });
-        }
-
-        // Check if bank details exist for the supplier
-        const selectBankSupplierQuery = `SELECT * FROM banksupplier WHERE supId = ?`;
-        db.query(selectBankSupplierQuery, [supId], (err, bankResult) => {
-          if (err) {
-            console.error('Error fetching bank details:', err);
-            return res.status(500).json({ message: "Error fetching bank details", error: err });
-          }
-
-          if (bankResult.length > 0) {
-            const bankData = bankResult[0];
-
-            // Save bank details to delete_bank_supplier table
-            const insertDeleteBankSupplierQuery = `
-              INSERT INTO delete_bank_supplier (supId, supName, supBank, supBankNo) 
-              VALUES (?, ?, ?, ?)
-            `;
-            db.query(
-              insertDeleteBankSupplierQuery,
-              [bankData.supId, bankData.supName, bankData.supBank, bankData.supBankNo],
-              (err) => {
-                if (err) {
-                  console.error('Error saving deleted bank details:', err);
-                  return res.status(500).json({ message: "Error saving deleted bank details", error: err });
-                }
-
-                // Delete supplier from suppliers table
-                const deleteSupplierQuery = `DELETE FROM suppliers WHERE Supid = ?`;
-                db.query(deleteSupplierQuery, [supId], (err) => {
-                  if (err) {
-                    console.error('Error deleting supplier:', err);
-                    return res.status(500).json({ message: "Error deleting supplier", error: err });
-                  }
-
-                  // Delete bank details from banksupplier table
-                  const deleteBankSupplierQuery = `DELETE FROM banksupplier WHERE supId = ?`;
-                  db.query(deleteBankSupplierQuery, [supId], (err) => {
-                    if (err) {
-                      console.error('Error deleting bank details:', err);
-                      return res.status(500).json({ message: "Error deleting bank details", error: err });
-                    }
-                    res.status(200).json({ message: "Supplier and bank details deleted successfully" });
-                  });
-                });
-              }
-            );
-          } else {
-            // If no bank details, just delete the supplier from suppliers table
-            const deleteSupplierQuery = `DELETE FROM suppliers WHERE Supid = ?`;
-            db.query(deleteSupplierQuery, [supId], (err) => {
-              if (err) {
-                console.error('Error deleting supplier:', err);
-                return res.status(500).json({ message: "Error deleting supplier", error: err });
-              }
-              res.status(200).json({ message: "Supplier deleted successfully without bank details" });
-            });
-          }
-        });
-      }
-    );
-  });
+// Example Express.js route
+app.delete('/api/delete_supplier/:id', async (req, res) => {
+  const supId = req.params.id;
+  try {
+    // Assuming you have a method to find and delete the supplier by ID
+    await SupplierModel.deleteOne({ Supid: supId });
+    res.status(200).send({ message: 'Supplier deleted successfully' });
+  } catch (error) {
+    res.status(500).send({ message: 'Error deleting supplier' });
+  }
 });
+
 
 
 
