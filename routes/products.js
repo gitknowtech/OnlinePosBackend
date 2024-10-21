@@ -271,7 +271,33 @@ router.delete('/delete_product/:productId', (req, res) => {
 
 
 
+// API to update product status
+router.put('/update_status/:productId', (req, res) => {
+  const { productId } = req.params;
+  const { status } = req.body;
 
+  // Validate if the status is either "active" or "inactive"
+  if (status !== 'active' && status !== 'inactive') {
+    return res.status(400).json({ message: 'Invalid status value. Must be "active" or "inactive".' });
+  }
+
+  // Update the product's status in the database
+  const updateStatusQuery = `UPDATE products SET status = ? WHERE productId = ?`;
+
+  db.query(updateStatusQuery, [status, productId], (err, result) => {
+    if (err) {
+      console.error('Error updating product status:', err);
+      return res.status(500).json({ message: 'Failed to update product status', error: err });
+    }
+
+    // Check if the product was found and updated
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    res.status(200).json({ message: 'Product status updated successfully' });
+  });
+});
 
 
 
