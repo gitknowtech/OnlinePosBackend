@@ -174,7 +174,7 @@ router.post("/create_supplier", (req, res) => {
 
 
 // API to check for duplicate Supplier ID or Name
-router.post("/check_supplier_duplicate", (req, res) => {
+router.post("/supplier_check_duplicate", (req, res) => {
   const { Supid, Supname } = req.body;
 
   const query = `
