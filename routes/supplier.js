@@ -379,5 +379,38 @@ router.get("/get_supplier_bank_details_removed/:supId", (req, res) => {
 
 
 
+
+// Update supplier status
+router.put('/update_status/:supid', (req, res) => {
+  const { supid } = req.params;
+  const { status } = req.body;
+
+  console.log(`Received request to update status for supid: ${supid} to ${status}`);
+
+  // Validate if the status is either "active" or "inactive"
+  if (status !== 'active' && status !== 'inactive') {
+    return res.status(400).json({ message: 'Invalid status value. Must be "active" or "inactive".' });
+  }
+
+  const updateStatusQuery = `UPDATE suppliers SET status = ? WHERE supid = ?`;
+
+  db.query(updateStatusQuery, [status, supid], (err, result) => {
+    if (err) {
+      console.error('Error updating supplier status:', err);
+      return res.status(500).json({ message: 'Failed to update supplier status', error: err });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Supplier not found' });
+    }
+
+    res.status(200).json({ message: 'Supplier status updated successfully' });
+  });
+});
+
+
+
+
+
 // Export the router
 module.exports = router;
