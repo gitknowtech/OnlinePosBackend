@@ -359,6 +359,63 @@ router.get("/get_supplier_bank_details/:supId", (req, res) => {
 });
 
 
+// API to get bank details for a specific supplier
+router.get("/get_supplier_address_details/:Supid", (req, res) => {
+  const { Supid } = req.params;
+  const selectAddressQuery = `SELECT address1, address2, address3 FROM suppliers WHERE Supid = ?`;
+
+  db.query(selectAddressQuery, [Supid], (err, results) => {
+    if (err) {
+      return res.status(500).json({ message: "Error fetching address details" });
+    }
+    if (results.length === 0) {
+      return res.status(404).json({ message: "No address details found for this supplier" });
+    }
+    return res.status(200).json(results[0]);
+  });
+});
+
+
+
+// API to get website details for a specific supplier
+router.get("/get_supplier_website_details/:Supid", (req, res) => {
+  const { Supid } = req.params;
+  const selectAddressQuery = `SELECT email, website FROM suppliers WHERE Supid = ?`;
+
+  db.query(selectAddressQuery, [Supid], (err, results) => {
+    if (err) {
+      return res.status(500).json({ message: "Error fetching website details" });
+    }
+    if (results.length === 0) {
+      return res.status(404).json({ message: "No web address details found for this supplier" });
+    }
+    return res.status(200).json(results[0]);
+  });
+});
+
+
+
+// API to get mobile details for a specific supplier
+router.get("/get_supplier_mobile_details/:Supid", (req, res) => {
+  const { Supid } = req.params;
+  const selectAddressQuery = `SELECT mobile1, mobile2, mobile3 FROM suppliers WHERE Supid = ?`;
+
+  db.query(selectAddressQuery, [Supid], (err, results) => {
+    if (err) {
+      return res.status(500).json({ message: "Error fetching mobile details" });
+    }
+    if (results.length === 0) {
+      return res.status(404).json({ message: "No mobile details found for this supplier" });
+    }
+    return res.status(200).json(results[0]);
+  });
+});
+
+
+
+
+
+
 
 
 // API to get removed bank details for a specific supplier
