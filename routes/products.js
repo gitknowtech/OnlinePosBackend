@@ -51,6 +51,50 @@ const createProductTable = () => {
 };
 
 
+const createDeletedProductsTable = () => {
+  const createTableQuery = `
+    CREATE TABLE IF NOT EXISTS deleted_products (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      productId VARCHAR(1000) NOT NULL,
+      productName VARCHAR(1000) NOT NULL,
+      productNameSinhala VARCHAR(255),
+      barcode VARCHAR(255),
+      batchNumber VARCHAR(255),
+      selectedSupplier VARCHAR(1000),
+      selectedCategory VARCHAR(1000),
+      selectedUnit VARCHAR(255),
+      manufacturingDate DATE,
+      expiringDate DATE,
+      costPrice DECIMAL(10, 2),
+      mrpPrice DECIMAL(10, 2),
+      profitPercentage DECIMAL(5, 2),
+      profitAmount DECIMAL(10, 2),
+      discountPrice DECIMAL(10, 2),
+      discountPercentage DECIMAL(5, 2),
+      wholesalePrice DECIMAL(10, 2),
+      wholesalePercentage DECIMAL(5, 2),
+      lockedPrice DECIMAL(10, 2),
+      stockQuantity DECIMAL(10, 4),
+      stockAlert DECIMAL(10, 4),
+      store VARCHAR(500),
+      user VARCHAR(500),
+      status VARCHAR(10),
+      deleteTime DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      imageLink VARCHAR(2000),
+      openingBalance DECIMAL(10,4)
+    )
+  `;
+
+  db.query(createTableQuery, (err, result) => {
+    if (err) {
+      console.error("Error creating deleted_products table:", err);
+    } else {
+      console.log("Deleted products table exists or created successfully");
+    }
+  });
+};
+
+
 
 // Create `opening_balance_table` to store opening balance separately
 const createOpeningBalanceTable = () => {
@@ -78,6 +122,7 @@ const createOpeningBalanceTable = () => {
 // Call both table creation functions
 createProductTable();
 createOpeningBalanceTable();
+createDeletedProductsTable( );
 
 
 
@@ -242,7 +287,7 @@ router.get('/fetch_products', (req, res) => {
 });
 
 
-
+/*
 
 // API to delete product by productId
 router.delete('/delete_product/:productId', (req, res) => {
@@ -267,7 +312,95 @@ router.delete('/delete_product/:productId', (req, res) => {
       res.status(200).json({ message: 'Product and opening balance deleted successfully!' });
     });
   });
+});*/
+
+
+
+
+// API to delete product by productId
+router.delete('/delete_product/:productId', (req, res) => {
+  const { productId } = req.params;
+
+  const getProductQuery = `SELECT * FROM products WHERE productId = ?`;
+  const getOpeningBalanceQuery = `SELECT openingBalance FROM opening_balance_table WHERE productId = ?`;
+  
+  const insertDeletedProductQuery = `
+    INSERT INTO deleted_products (
+      productId, productName, productNameSinhala, barcode, batchNumber, 
+      selectedSupplier, selectedCategory, selectedUnit, manufacturingDate, 
+      expiringDate, costPrice, mrpPrice, profitPercentage, profitAmount, 
+      discountPrice, discountPercentage, wholesalePrice, wholesalePercentage, 
+      lockedPrice, stockQuantity, stockAlert, store, user, status, imageLink, openingBalance
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+  
+  const deleteProductQuery = `DELETE FROM products WHERE productId = ?`;
+  const deleteOpeningBalanceQuery = `DELETE FROM opening_balance_table WHERE productId = ?`;
+
+  // First, get the product data before deleting
+  db.query(getProductQuery, [productId], (err, productResult) => {
+    if (err) {
+      console.error('Error fetching product:', err);
+      return res.status(500).json({ message: 'Error fetching product', error: err });
+    }
+
+    if (productResult.length === 0) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    const productData = productResult[0];
+
+    // Fetch the opening balance from opening_balance_table
+    db.query(getOpeningBalanceQuery, [productId], (err, openingBalanceResult) => {
+      if (err) {
+        console.error('Error fetching opening balance:', err);
+        return res.status(500).json({ message: 'Error fetching opening balance', error: err });
+      }
+
+      const openingBalance = openingBalanceResult.length > 0 ? openingBalanceResult[0].openingBalance : 0;
+
+      // Insert the product data and the related opening balance into deleted_products table
+      db.query(insertDeletedProductQuery, [
+        productData.productId, productData.productName, productData.productNameSinhala, productData.barcode,
+        productData.batchNumber, productData.selectedSupplier, productData.selectedCategory,
+        productData.selectedUnit, productData.manufacturingDate, productData.expiringDate,
+        productData.costPrice, productData.mrpPrice, productData.profitPercentage, productData.profitAmount,
+        productData.discountPrice, productData.discountPercentage, productData.wholesalePrice,
+        productData.wholesalePercentage, productData.lockedPrice, productData.stockQuantity,
+        productData.stockAlert, productData.store, productData.user, productData.status, productData.imageLink,
+        openingBalance // Save the related opening balance
+      ], (err, insertResult) => {
+        if (err) {
+          console.error('Error saving deleted product:', err);
+          return res.status(500).json({ message: 'Error saving deleted product', error: err });
+        }
+
+        // After saving to deleted_products, delete the product from products table
+        db.query(deleteProductQuery, [productId], (err, deleteProductResult) => {
+          if (err) {
+            console.error('Error deleting product:', err);
+            return res.status(500).json({ message: 'Error deleting product', error: err });
+          }
+
+          // After deleting the product, delete the related opening balance
+          db.query(deleteOpeningBalanceQuery, [productId], (err, deleteOpeningBalanceResult) => {
+            if (err) {
+              console.error('Error deleting opening balance:', err);
+              return res.status(500).json({ message: 'Error deleting opening balance', error: err });
+            }
+
+            // Successfully deleted product and opening balance
+            res.status(200).json({ message: 'Product and opening balance deleted successfully!' });
+          });
+        });
+      });
+    });
+  });
 });
+
+
+
+
 
 
 
