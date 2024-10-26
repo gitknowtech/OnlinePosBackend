@@ -112,23 +112,23 @@ router.post('/update_stock', (req, res) => {
    
   
   
-  // In your backend (e.g., Express.js)
-  router.get('/get_last_50_stock_records', (req, res) => {
-    const fetchLast50RecordsQuery = `
+// In your backend (e.g., Express.js)
+router.get('/get_last_50_stock_records', (req, res) => {
+    const fetchAllRecordsQuery = `
         SELECT productId, productName, quantity, type, date
         FROM product_stockin
         ORDER BY date DESC
-        LIMIT 50
     `;
-  
-    db.query(fetchLast50RecordsQuery, (err, results) => {
+
+    db.query(fetchAllRecordsQuery, (err, results) => {
         if (err) {
             console.error('Error fetching stock records:', err);
             return res.status(500).json({ message: 'Error fetching stock records' });
         }
         res.json(results);
     });
-  });
+});
+
   
 
 
@@ -138,40 +138,40 @@ router.post('/update_stock', (req, res) => {
   // Backend route to get last 50 records and total quantity for a specific productId
   router.get('/get_last_50_records_by_product', (req, res) => {
     const { productId } = req.query;
-    const query = `
+
+    const fetchRecordsQuery = `
         SELECT productId, productName, quantity, type, date
         FROM product_stockin
         WHERE productId = ?
         ORDER BY date DESC
-        LIMIT 50
     `;
-  
-    const sumQuery = `
+
+    const fetchTotalInQuery = `
         SELECT SUM(quantity) AS totalIn
         FROM product_stockin
         WHERE productId = ? 
     `;
-  
-    // First, fetch the last 50 records
-    db.query(query, [productId], (err, records) => {
+
+    // First, fetch all records for the specific productId
+    db.query(fetchRecordsQuery, [productId], (err, records) => {
         if (err) {
             console.error('Error fetching product records:', err);
             return res.status(500).json({ message: 'Error fetching product records' });
         }
-  
+
         // Then, fetch the total quantity (totalIn) for the productId
-        db.query(sumQuery, [productId], (err, totalResult) => {
+        db.query(fetchTotalInQuery, [productId], (err, totalResult) => {
             if (err) {
                 console.error('Error fetching total quantity:', err);
                 return res.status(500).json({ message: 'Error fetching total quantity' });
             }
-  
+
             const totalIn = totalResult[0]?.totalIn || 0; // Set totalIn to 0 if no result
-  
+
             res.json({ records, totalIn });
         });
     });
-  });
+});
   
 
 
@@ -294,23 +294,20 @@ router.post('/update_stock_out', (req, res) => {
 
 // API to fetch the last 50 stock out records
 router.get('/get_last_50_stockout_records', (req, res) => {
-  const fetchLast50RecordsQuery = `
-      SELECT productId, productName, quantity, type, date
-      FROM product_stockout
-      ORDER BY date DESC
-      LIMIT 50
-  `;
+    const fetchAllRecordsQuery = `
+    SELECT productId, productName, quantity, type, date
+    FROM product_stockout
+    ORDER BY date DESC
+`;
 
-  db.query(fetchLast50RecordsQuery, (err, results) => {
-      if (err) {
-          console.error('Error fetching stock out records:', err);
-          return res.status(500).json({ message: 'Error fetching stock out records' });
-      }
-      res.json(results);
-  });
+db.query(fetchAllRecordsQuery, (err, results) => {
+    if (err) {
+        console.error('Error fetching stock out records:', err);
+        return res.status(500).json({ message: 'Error fetching stock out records' });
+    }
+    res.json(results);
 });
-
-
+});
 
 
 
@@ -319,29 +316,28 @@ router.get('/get_last_50_stockout_records', (req, res) => {
 router.get('/get_last_50_records_by_product_out', (req, res) => {
     const { productId } = req.query;
     
-    const query = `
+    const fetchRecordsQuery = `
         SELECT productId, productName, quantity, type, store, date
         FROM product_stockout
         WHERE productId = ?
         ORDER BY date DESC
-        LIMIT 50
     `;
   
-    const sumQuery = `
+    const fetchTotalOutQuery = `
         SELECT SUM(quantity) AS totalOut
         FROM product_stockout
         WHERE productId = ?
     `;
   
-    // First, fetch the last 50 records
-    db.query(query, [productId], (err, records) => {
+    // First, fetch all records for the specific productId
+    db.query(fetchRecordsQuery, [productId], (err, records) => {
         if (err) {
             console.error('Error fetching product records:', err);
             return res.status(500).json({ message: 'Error fetching product records' });
         }
   
         // Then, fetch the total quantity (totalOut) for the productId
-        db.query(sumQuery, [productId], (err, totalResult) => {
+        db.query(fetchTotalOutQuery, [productId], (err, totalResult) => {
             if (err) {
                 console.error('Error fetching total quantity:', err);
                 return res.status(500).json({ message: 'Error fetching total quantity' });
@@ -352,9 +348,7 @@ router.get('/get_last_50_records_by_product_out', (req, res) => {
             res.json({ records, totalOut });
         });
     });
-  });
-  
-
+});
 
 
 
@@ -407,15 +401,14 @@ router.post('/update_stock_transfer', (req, res) => {
 
 // In your backend (e.g., Express.js)
 router.get('/get_last_50_stock_records_transfer_up', (req, res) => {
-    const fetchLast50RecordsQuery = `
+    const fetchAllRecordsQuery = `
         SELECT productId, productName, quantity, type, store, date
         FROM product_stockin
         WHERE store IS NOT NULL
         ORDER BY date DESC
-        LIMIT 50
     `;
-  
-    db.query(fetchLast50RecordsQuery, (err, results) => {
+
+    db.query(fetchAllRecordsQuery, (err, results) => {
         if (err) {
             console.error('Error fetching stock records:', err);
             return res.status(500).json({ message: 'Error fetching stock records' });
@@ -423,6 +416,7 @@ router.get('/get_last_50_stock_records_transfer_up', (req, res) => {
         res.json(results);
     });
 });
+
 
 
 
@@ -436,7 +430,6 @@ router.get('/get_last_50_records_by_product_transfer_up', (req, res) => {
         FROM product_stockin
         WHERE productId = ? AND store IS NOT NULL
         ORDER BY date DESC
-        LIMIT 50
     `;
 
     const fetchTotalInQuery = `
@@ -445,7 +438,7 @@ router.get('/get_last_50_records_by_product_transfer_up', (req, res) => {
         WHERE productId = ? AND store IS NOT NULL
     `;
 
-    // First, fetch the last 50 records for the product with non-null store values
+    // First, fetch all records for the product with non-null store values
     db.query(fetchRecordsQuery, [productId], (err, records) => {
         if (err) {
             console.error('Error fetching product records:', err);
@@ -468,6 +461,114 @@ router.get('/get_last_50_records_by_product_transfer_up', (req, res) => {
 
 
 
+
+
+
+// In your backend (e.g., Express.js)
+router.get('/get_last_50_stock_records_transfer_down', (req, res) => {
+    const fetchAllRecordsQuery = `
+        SELECT productId, productName, quantity, type, store, date
+        FROM product_stockout
+        WHERE store IS NOT NULL
+        ORDER BY date DESC
+    `;
+
+    db.query(fetchAllRecordsQuery, (err, results) => {
+        if (err) {
+            console.error('Error fetching stock records:', err);
+            return res.status(500).json({ message: 'Error fetching stock records' });
+        }
+        res.json(results);
+    });
+});
+
+
+
+
+// Backend route to get last 50 records and total quantity for a specific productId
+router.get('/get_last_50_records_by_product_transfer_down', (req, res) => {
+    const { productId } = req.query;
+
+    const fetchRecordsQuery = `
+        SELECT productId, productName, quantity, type, store, date
+        FROM product_stockout
+        WHERE productId = ? AND store IS NOT NULL
+        ORDER BY date DESC
+    `;
+
+    const fetchTotalOutQuery = `
+        SELECT SUM(quantity) AS totalOut
+        FROM product_stockout
+        WHERE productId = ? AND store IS NOT NULL
+    `;
+
+    // First, fetch all records for the product with non-null store values
+    db.query(fetchRecordsQuery, [productId], (err, records) => {
+        if (err) {
+            console.error('Error fetching product records:', err);
+            return res.status(500).json({ message: 'Error fetching product records' });
+        }
+
+        // Then, fetch the total quantity (totalOut) for the productId with non-null store values
+        db.query(fetchTotalOutQuery, [productId], (err, totalResult) => {
+            if (err) {
+                console.error('Error fetching total quantity:', err);
+                return res.status(500).json({ message: 'Error fetching total quantity' });
+            }
+
+            const totalOut = totalResult[0]?.totalOut || 0; // Set totalOut to 0 if no result
+
+            res.json({ records, totalOut });
+        });
+    });
+});
+
+
+
+
+router.post('/update_stock_transfer_out', (req, res) => {
+    const { productId, productName, barcode, quantity, store } = req.body;
+
+    if (!productId || isNaN(quantity) || parseFloat(quantity) <= 0 || !store) {
+        return res.status(400).json({ message: 'Invalid product ID, quantity, or store name' });
+    }
+
+    const parsedQuantity = parseFloat(parseFloat(quantity).toFixed(4));
+
+    // Insert a record into `product_stockout`
+    const insertStockOutQuery = `
+        INSERT INTO product_stockout (productId, productName, barcode, quantity, type, store, date)
+        VALUES (?, ?, ?, ?, 'StockOut', ?, NOW())
+    `;
+
+    db.query(insertStockOutQuery, [productId, productName, barcode, parsedQuantity, store], (err, result) => {
+        if (err) {
+            console.error('Error inserting into product_stockout:', err);
+            return res.status(500).json({ message: 'Error logging stock deduction' });
+        }
+
+        // Update the stock quantity in `products` by subtracting the quantity
+        const updateProductStockQuery = `
+            UPDATE products
+            SET stockQuantity = stockQuantity - ?
+            WHERE productId = ? AND stockQuantity >= ?
+        `;
+
+        db.query(updateProductStockQuery, [parsedQuantity, productId, parsedQuantity], (err, result) => {
+            if (err) {
+                console.error('Error updating products table:', err);
+                return res.status(500).json({ message: 'Error updating product stock' });
+            }
+
+            if (result.affectedRows === 0) {
+                return res.status(400).json({ message: 'Insufficient stock quantity' });
+            }
+
+            res.json({ message: 'Stock deducted successfully!' });
+        });
+    });
+});
+  
 
 
 module.exports = router;
