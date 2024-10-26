@@ -13,6 +13,7 @@ const storeRoutes = require('./routes/store')
 const batchRoutes = require('./routes/batch')
 const bankRoutes = require('./routes/bank')
 const supplierRoutes = require('./routes/supplier')
+const stockRoutes = require('./routes/stock')
 
 const app = express();
 app.use(cors());
@@ -28,6 +29,7 @@ app.use('/api/stores', storeRoutes)
 app.use('/api/batches', batchRoutes)
 app.use('/api/banks', bankRoutes)
 app.use('/api/suppliers', supplierRoutes)
+app.use('/api/stock', stockRoutes)
 
 
 

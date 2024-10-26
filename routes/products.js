@@ -51,26 +51,6 @@ const createProductTable = () => {
 };
 
 
-const createProductStockInTable = () => {
-  const createTableQuery = `
-  CREATE TABLE IF NOT EXISTS product_stockin (
-    stockInId INT AUTO_INCREMENT PRIMARY KEY,
-    productId INT NOT NULL,
-    productname VARCHAR(1000) NOT NULL,
-    barcode VARCHAR(1000) NOT NULL,
-    quantity DECIMAL(10,4),
-    date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-  )`;
-
-
-  db.query(createTableQuery, (err, result) => {
-    if (err) {
-      console.error("Error creating products Stock in table:", err);
-    } else {
-      console.log("Products Stock in table exists or created successfully");
-    }
-  });
-};
 
 
 
@@ -146,7 +126,6 @@ const createOpeningBalanceTable = () => {
 createProductTable();
 createOpeningBalanceTable();
 createDeletedProductsTable( );
-createProductStockInTable();
 
 
 
@@ -331,31 +310,7 @@ router.get('/fetch_products', (req, res) => {
   });
 });
 
-
-// API to fetch product by barcode or product ID
-router.get('/fetch_products_barcode', (req, res) => {
-  const { searchTerm, store } = req.query;
-
-  // SQL query to search for products by barcode, product ID, or name
-  const query = `
-      SELECT * FROM products 
-      WHERE barcode = ? OR productId = ? OR productName LIKE ? AND (store = ? OR store = 'all') 
-      LIMIT 1;
-  `;
-
-  db.query(query, [searchTerm, searchTerm, `%${searchTerm}%`, store], (err, results) => {
-      if (err) {
-          console.error('Error fetching product:', err);
-          return res.status(500).json({ message: 'Error fetching product' });
-      }
-
-      if (results.length > 0) {
-          return res.json(results);
-      } else {
-          return res.status(404).json({ message: 'Product not found' });
-      }
-  });
-});
+ 
 
 
 // API to fetch all products with optional filtering and pagination
@@ -536,49 +491,6 @@ router.put('/update_status/:productId', (req, res) => {
     res.status(200).json({ message: 'Product status updated successfully' });
   });
 });
-
-
-// API to update stock and log it in product_stockin
-router.post('/update_stock', (req, res) => {
-  const { productId, productName, barcode, quantity } = req.body;
-
-  if (!productId || isNaN(quantity) || parseFloat(quantity) <= 0) {
-      return res.status(400).json({ message: 'Invalid product ID or quantity' });
-  }
-
-  // Convert quantity to a decimal format for consistency
-  const parsedQuantity = parseFloat(quantity).toFixed(4);
-
-  // Step 1: Insert a record into `product_stockin`
-  const insertStockInQuery = `
-      INSERT INTO product_stockin (productId, productName, barcode, quantity, date)
-      VALUES (?, ?, ?, ?, NOW())
-  `;
-
-  db.query(insertStockInQuery, [productId, productName, barcode, parsedQuantity], (err, result) => {
-      if (err) {
-          console.error('Error inserting into product_stockin:', err);
-          return res.status(500).json({ message: 'Error logging stock addition' });
-      }
-
-      // Step 2: Update the stock quantity in `products`
-      const updateProductStockQuery = `
-          UPDATE products
-          SET balanceQty = balanceQty + ?
-          WHERE productId = ?
-      `;
-
-      db.query(updateProductStockQuery, [parsedQuantity, productId], (err, result) => {
-          if (err) {
-              console.error('Error updating products table:', err);
-              return res.status(500).json({ message: 'Error updating product stock' });
-          }
-
-          return res.json({ message: 'Stock updated successfully!' });
-      });
-  });
-});
-
 
 
 
