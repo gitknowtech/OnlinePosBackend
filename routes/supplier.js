@@ -467,6 +467,29 @@ router.put('/update_status/:supid', (req, res) => {
 
 
 
+// API to search suppliers based on various fields
+router.get("/get_suppliers_stock", (req, res) => {
+  const searchTerm = req.query.searchTerm || ""; // Get the search term from the query
+
+  const query = `
+    SELECT Supid, Supname, address1, email, mobile1, company, status, store 
+    FROM suppliers
+    WHERE 
+      Supname LIKE ? OR
+      mobile1 LIKE ? OR
+      Supid LIKE ? OR
+      company LIKE ?
+  `;
+
+  const searchValue = `%${searchTerm}%`; // Wrap the term in wildcards for partial matching
+  db.query(query, [searchValue, searchValue, searchValue, searchValue], (err, results) => {
+    if (err) {
+      console.error("Error fetching suppliers:", err);
+      return res.status(500).json({ message: "Error fetching suppliers" });
+    }
+    res.status(200).json(results); // Return matched suppliers
+  });
+});
 
 
 // Export the router

@@ -494,5 +494,27 @@ router.put('/update_status/:productId', (req, res) => {
 
 
 
+// API to fetch products by supplier
+router.get('/fetch_products_by_supplier', (req, res) => {
+  const { supplier } = req.query;
+
+  if (!supplier) {
+    return res.status(400).json({ message: "Supplier name is required" });
+  }
+
+  const query = `SELECT * FROM products WHERE selectedSupplier = ?`;
+  
+  db.query(query, [supplier], (err, results) => {
+    if (err) {
+      console.error('Error fetching products by supplier:', err);
+      return res.status(500).json({ message: 'Error fetching products', error: err });
+    }
+
+    res.json(results);
+  });
+});
+
+
+
 
 module.exports = router;
