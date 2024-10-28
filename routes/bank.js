@@ -46,6 +46,8 @@ router.delete("/delete_bank", (req, res) => {
   });
 });
 
+
+
 router.get("/get_banks", (req, res) => {
   const query = "SELECT * FROM banks";
   db.query(query, (err, results) => {
@@ -54,7 +56,9 @@ router.get("/get_banks", (req, res) => {
     }
     return res.status(200).json(results);
   });
-});
+}); 
+
+
 
 router.post("/create_banks", (req, res) => {
   const { id, bankName, user, store, saveTime } = req.body;
