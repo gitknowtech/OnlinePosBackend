@@ -51,31 +51,45 @@ router.post("/create_store", (req, res) => {
   });
   
 
-  // Update store API
+// Update store API with duplicate checking
 router.put('/update_store/:id', (req, res) => {
-    const storeId = req.params.id; // Get the store ID from the URL parameters
-    const { storeName } = req.body; // Extract new store name from the request body
-  
-    // Validation
-    if (!storeName) {
-      return res.status(400).json({ message: 'Store name is required' });
+  const storeId = req.params.id; // Get the store ID from the URL parameters
+  const { storeName } = req.body; // Extract new store name from the request body
+
+  // Validation
+  if (!storeName || storeName.trim() === '') {
+    return res.status(400).json({ message: 'Store name is required' });
+  }
+
+  // Check if the store name already exists (excluding the current store ID)
+  const checkDuplicateQuery = `SELECT * FROM stores WHERE LOWER(storeName) = LOWER(?) AND id != ?`;
+  db.query(checkDuplicateQuery, [storeName, storeId], (err, result) => {
+    if (err) {
+      console.error('Error checking for duplicate store:', err);
+      return res.status(500).json({ message: 'Error checking for duplicate store' });
     }
-  
-    const query = 'UPDATE stores SET storeName = ? WHERE id = ?';
-    db.query(query, [storeName, storeId], (err, result) => {
+
+    if (result.length > 0) {
+      return res.status(400).json({ message: 'Store name already exists' });
+    }
+
+    // Proceed with updating the store name if no duplicate was found
+    const updateStoreQuery = 'UPDATE stores SET storeName = ? WHERE id = ?';
+    db.query(updateStoreQuery, [storeName, storeId], (err, result) => {
       if (err) {
         console.error('Error updating store:', err);
         return res.status(500).json({ message: 'Error updating store' });
       }
-  
+
       if (result.affectedRows === 0) {
         return res.status(404).json({ message: 'Store not found' });
       }
-  
-      res.status(200).json({ message: `Store has been updated successfully.` });
+
+      res.status(200).json({ message: 'Store has been updated successfully.' });
     });
   });
-  
+});
+
   
 
 // Delete store

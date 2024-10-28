@@ -571,5 +571,100 @@ router.post('/update_stock_transfer_out', (req, res) => {
   
 
 
+
+// API to search categories based on search term
+router.get("/get_categories_stock", (req, res) => {
+    const searchTerm = req.query.searchTerm || "";
+
+    const query = `
+        SELECT id AS category_id, catName AS name, user, store, saveTime
+        FROM categories
+        WHERE catName LIKE ? 
+    `;
+
+    const searchValue = `%${searchTerm}%`;
+    db.query(query, [searchValue], (err, results) => {
+        if (err) {
+            console.error("Error fetching categories:", err);
+            return res.status(500).json({ message: "Error fetching categories" });
+        }
+        res.status(200).json(results); // Return matched categories
+    });
+});
+
+
+
+
+// API to fetch products by selected category
+router.get("/fetch_products_by_category", (req, res) => {
+    const { category } = req.query;
+
+    const query = `
+        SELECT 
+            productId,
+            productName,
+            selectedCategory AS stockCategory,
+            selectedUnit,
+            mrpPrice,
+            stockQuantity,
+            store,
+            user,
+            saveTime
+        FROM products
+        WHERE selectedCategory = ?
+    `;
+
+    db.query(query, [category], (err, results) => {
+        if (err) {
+            console.error("Error fetching products by category:", err);
+            return res.status(500).json({ message: "Error fetching products by category" });
+        }
+        res.status(200).json(results); // Return products in the selected category
+    });
+});
+
+
+
+// API to search batches based on search term
+router.get("/get_batches_stock", (req, res) => {
+    const searchTerm = req.query.searchTerm || "";
+
+    const query = `
+        SELECT id, batchName 
+        FROM batches
+        WHERE batchName LIKE ? 
+    `;
+
+    const searchValue = `%${searchTerm}%`;
+    db.query(query, [searchValue], (err, results) => {
+        if (err) {
+            console.error("Error fetching batches:", err);
+            return res.status(500).json({ message: "Error fetching batches" });
+        }
+        res.status(200).json(results); // Return matched batches
+    });
+});
+
+// API to fetch products by batch number
+router.get("/fetch_products_by_batch", (req, res) => {
+    const { batch } = req.query;
+
+    const query = `
+        SELECT productId, productName, batchNumber, selectedUnit, costPrice, mrpPrice, stockQuantity 
+        FROM products
+        WHERE batchNumber = ?
+    `;
+
+    db.query(query, [batch], (err, results) => {
+        if (err) {
+            console.error("Error fetching products by batch:", err);
+            return res.status(500).json({ message: "Error fetching products by batch" });
+        }
+        res.status(200).json(results); // Return products with the selected batch
+    });
+});
+
+
+
 module.exports = router;
 

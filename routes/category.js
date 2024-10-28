@@ -81,17 +81,15 @@ router.get("/get_categories", (req, res) => {
   });
   
   
-  // API to update the category by categoryId
- router.put('/update_category/:categoryId', (req, res) => {
+  router.put('/update_category/:categoryId', (req, res) => {
     const { categoryId } = req.params;
     const { catName } = req.body;
   
-    // Check if category name is provided
     if (!catName || catName.trim() === '') {
       return res.status(400).json({ message: 'Category name cannot be empty' });
     }
   
-    // Check if category name already exists (ignore case)
+    // First, check if the category name already exists in other records
     const checkDuplicateQuery = `SELECT * FROM categories WHERE LOWER(catName) = LOWER(?) AND id != ?`;
     db.query(checkDuplicateQuery, [catName, categoryId], (err, result) => {
       if (err) {
@@ -102,21 +100,60 @@ router.get("/get_categories", (req, res) => {
         return res.status(400).json({ message: 'Category name already exists' });
       }
   
-      // Update category name in the database
-      const updateCategoryQuery = `UPDATE categories SET catName = ? WHERE id = ?`;
-      db.query(updateCategoryQuery, [catName, categoryId], (err, result) => {
-        if (err) {
-          return res.status(500).json({ message: 'Error updating category' });
+      // Retrieve the old category name for updating the products table
+      const getOldCategoryQuery = `SELECT catName FROM categories WHERE id = ?`;
+      db.query(getOldCategoryQuery, [categoryId], (selectErr, selectResult) => {
+        if (selectErr) {
+          return res.status(500).json({ message: 'Error retrieving old category name' });
         }
   
-        if (result.affectedRows === 0) {
+        if (selectResult.length === 0) {
           return res.status(404).json({ message: 'Category not found' });
         }
   
-        res.status(200).json({ message: 'Category updated successfully' });
+        const oldCategoryName = selectResult[0].catName;
+  
+        // Start transaction to ensure both updates occur together
+        db.beginTransaction((transactionErr) => {
+          if (transactionErr) {
+            return res.status(500).json({ message: 'Error starting transaction' });
+          }
+  
+          // Update the category name in the `categories` table
+          const updateCategoryQuery = `UPDATE categories SET catName = ? WHERE id = ?`;
+          db.query(updateCategoryQuery, [catName, categoryId], (updateErr, updateResult) => {
+            if (updateErr) {
+              return db.rollback(() => {
+                res.status(500).json({ message: 'Error updating category' });
+              });
+            }
+  
+            // Update the `selectedCategory` in the `products` table
+            const updateProductsQuery = `UPDATE products SET selectedCategory = ? WHERE selectedCategory = ?`;
+            db.query(updateProductsQuery, [catName, oldCategoryName], (productUpdateErr, productUpdateResult) => {
+              if (productUpdateErr) {
+                return db.rollback(() => {
+                  res.status(500).json({ message: 'Error updating related products' });
+                });
+              }
+  
+              // Commit transaction if both updates are successful
+              db.commit((commitErr) => {
+                if (commitErr) {
+                  return db.rollback(() => {
+                    res.status(500).json({ message: 'Error committing transaction' });
+                  });
+                }
+  
+                res.status(200).json({ message: 'Category and related products updated successfully' });
+              });
+            });
+          });
+        });
       });
     });
   });
+  
   
   
   

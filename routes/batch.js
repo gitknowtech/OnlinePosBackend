@@ -90,31 +90,87 @@ router.delete('/delete_batch', (req, res) => {
   });
   
   
-  // Update batch API
-router.put('/update_batch/:id', (req, res) => {
-    const batchId = req.params.id; // Get the batch ID from the URL parameters
-    const { batchName } = req.body; // Extract new batch name from the request body
-  
-    // Validation
+  router.put('/update_batch/:id', (req, res) => {
+    const batchId = req.params.id;
+    const { batchName } = req.body;
+
     if (!batchName) {
-      return res.status(400).json({ message: 'Batch name is required' });
+        return res.status(400).json({ message: 'Batch name is required' });
     }
-  
-    const query = 'UPDATE batches SET batchName = ? WHERE id = ?';
-    db.query(query, [batchName, batchId], (err, result) => {
-      if (err) {
-        console.error('Error updating batch:', err);
-        return res.status(500).json({ message: 'Error updating batch' });
-      }
-  
-      if (result.affectedRows === 0) {
-        return res.status(404).json({ message: 'Batch not found' });
-      }
-  
-      res.status(200).json({ message: `Batch has been updated successfully.` });
+
+    // Check for duplicate batch name
+    const checkDuplicateQuery = 'SELECT id FROM batches WHERE batchName = ? AND id != ?';
+    db.query(checkDuplicateQuery, [batchName, batchId], (err, result) => {
+        if (err) {
+            console.error('Error checking batch name:', err);
+            return res.status(500).json({ message: 'Error checking batch name' });
+        }
+
+        if (result.length > 0) {
+            return res.status(400).json({ message: 'Batch name already available' });
+        }
+
+        // Retrieve the old batch name before updating
+        const getOldBatchNameQuery = 'SELECT batchName FROM batches WHERE id = ?';
+        db.query(getOldBatchNameQuery, [batchId], (selectErr, selectResult) => {
+            if (selectErr) {
+                console.error('Error retrieving old batch name:', selectErr);
+                return res.status(500).json({ message: 'Error retrieving old batch name' });
+            }
+
+            if (selectResult.length === 0) {
+                return res.status(404).json({ message: 'Batch not found' });
+            }
+
+            const oldBatchName = selectResult[0].batchName;
+
+            // Start transaction
+            db.beginTransaction((transactionErr) => {
+                if (transactionErr) {
+                    console.error('Error starting transaction:', transactionErr);
+                    return res.status(500).json({ message: 'Error starting transaction' });
+                }
+
+                // Update batch name in `batches` table
+                const updateBatchQuery = 'UPDATE batches SET batchName = ? WHERE id = ?';
+                db.query(updateBatchQuery, [batchName, batchId], (updateErr, updateResult) => {
+                    if (updateErr) {
+                        return db.rollback(() => {
+                            console.error('Error updating batch:', updateErr);
+                            return res.status(500).json({ message: 'Error updating batch' });
+                        });
+                    }
+
+                    // Update related batchNumber in `products` table
+                    const updateProductsQuery = 'UPDATE products SET batchNumber = ? WHERE batchNumber = ?';
+                    db.query(updateProductsQuery, [batchName, oldBatchName], (productUpdateErr, productUpdateResult) => {
+                        if (productUpdateErr) {
+                            return db.rollback(() => {
+                                console.error('Error updating products:', productUpdateErr);
+                                return res.status(500).json({ message: 'Error updating products' });
+                            });
+                        }
+
+                        // Commit transaction if both updates are successful
+                        db.commit((commitErr) => {
+                            if (commitErr) {
+                                return db.rollback(() => {
+                                    console.error('Error committing transaction:', commitErr);
+                                    return res.status(500).json({ message: 'Error committing transaction' });
+                                });
+                            }
+
+                            res.status(200).json({ message: `Batch and related products updated successfully.` });
+                        });
+                    });
+                });
+            });
+        });
     });
-  });
-  
+});
+
+
+
   
   
 

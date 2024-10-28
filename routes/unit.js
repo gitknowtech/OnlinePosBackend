@@ -60,39 +60,76 @@ router.delete("/delete_unit", (req, res) => {
 router.put('/update_unit/:unitId', (req, res) => {
     const { unitId } = req.params;
     const { unitName } = req.body;
-
+  
     if (!unitName || unitName.trim() === '') {
-        return res.status(400).json({ message: 'Unit name cannot be empty' });
+      return res.status(400).json({ message: 'Unit name cannot be empty' });
     }
-
-    // Check for duplicate unit name
+  
+    // First, check if the unit name already exists in other records
     const checkDuplicateQuery = `SELECT * FROM units WHERE LOWER(unitName) = LOWER(?) AND id != ?`;
     db.query(checkDuplicateQuery, [unitName, unitId], (err, result) => {
-        if (err) {
-            return res.status(500).json({ message: 'Error checking for duplicate unit' });
+      if (err) {
+        return res.status(500).json({ message: 'Error checking for duplicate unit' });
+      }
+  
+      if (result.length > 0) {
+        return res.status(400).json({ message: 'Unit name already exists' });
+      }
+  
+      // Retrieve the old unit name for updating the products table
+      const getOldUnitQuery = `SELECT unitName FROM units WHERE id = ?`;
+      db.query(getOldUnitQuery, [unitId], (selectErr, selectResult) => {
+        if (selectErr) {
+          return res.status(500).json({ message: 'Error retrieving old unit name' });
         }
-
-        if (result.length > 0) {
-            return res.status(400).json({ message: 'Unit name already exists' });
+  
+        if (selectResult.length === 0) {
+          return res.status(404).json({ message: 'Unit not found' });
         }
-
-        // Update the unit in the database
-        const updateUnitQuery = `UPDATE units SET unitName = ? WHERE id = ?`;
-        db.query(updateUnitQuery, [unitName, unitId], (err, result) => {
-            if (err) {
-                return res.status(500).json({ message: 'Error updating unit' });
+  
+        const oldUnitName = selectResult[0].unitName;
+  
+        // Start transaction to ensure both updates occur together
+        db.beginTransaction((transactionErr) => {
+          if (transactionErr) {
+            return res.status(500).json({ message: 'Error starting transaction' });
+          }
+  
+          // Update the unit name in the `units` table
+          const updateUnitQuery = `UPDATE units SET unitName = ? WHERE id = ?`;
+          db.query(updateUnitQuery, [unitName, unitId], (updateErr, updateResult) => {
+            if (updateErr) {
+              return db.rollback(() => {
+                res.status(500).json({ message: 'Error updating unit' });
+              });
             }
-
-            if (result.affectedRows === 0) {
-                return res.status(404).json({ message: 'Unit not found' });
-            }
-
-            res.status(200).json({ message: 'Unit updated successfully' });
+  
+            // Update the `selectedUnit` in the `products` table
+            const updateProductsQuery = `UPDATE products SET selectedUnit = ? WHERE selectedUnit = ?`;
+            db.query(updateProductsQuery, [unitName, oldUnitName], (productUpdateErr, productUpdateResult) => {
+              if (productUpdateErr) {
+                return db.rollback(() => {
+                  res.status(500).json({ message: 'Error updating related products' });
+                });
+              }
+  
+              // Commit transaction if both updates are successful
+              db.commit((commitErr) => {
+                if (commitErr) {
+                  return db.rollback(() => {
+                    res.status(500).json({ message: 'Error committing transaction' });
+                  });
+                }
+  
+                res.status(200).json({ message: 'Unit and related products updated successfully' });
+              });
+            });
+          });
         });
+      });
     });
-});
-
-
+  });
+  
 
 
 
