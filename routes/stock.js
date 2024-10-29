@@ -625,6 +625,12 @@ router.get("/fetch_products_by_category", (req, res) => {
 
 
 
+
+
+
+
+
+
 // API to search batches based on search term
 router.get("/get_batches_stock", (req, res) => {
     const searchTerm = req.query.searchTerm || "";
@@ -644,6 +650,11 @@ router.get("/get_batches_stock", (req, res) => {
         res.status(200).json(results); // Return matched batches
     });
 });
+
+
+
+
+
 
 // API to fetch products by batch number
 router.get("/fetch_products_by_batch", (req, res) => {
