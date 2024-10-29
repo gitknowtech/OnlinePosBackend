@@ -14,10 +14,12 @@ const batchRoutes = require('./routes/batch')
 const bankRoutes = require('./routes/bank')
 const supplierRoutes = require('./routes/supplier')
 const stockRoutes = require('./routes/stock')
+const invoiceRouter = require('./routes/invoice')
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
 
 
 //use the routes
@@ -30,6 +32,7 @@ app.use('/api/batches', batchRoutes)
 app.use('/api/banks', bankRoutes)
 app.use('/api/suppliers', supplierRoutes)
 app.use('/api/stock', stockRoutes)
+app.use('./api/invoice', invoiceRouter)
 
 
 
@@ -39,6 +42,7 @@ const uploadDir = 'uploads/';
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir);
 }
+
 
 
 // Configure multer for handling file uploads
@@ -52,8 +56,6 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({ storage });
-
-
 
 
 
@@ -84,7 +86,6 @@ const createUserTable = () => {
     }
   });
 };
-
 
 
 // Call these functions when initializing your database
