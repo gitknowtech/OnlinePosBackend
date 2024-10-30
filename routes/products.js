@@ -517,7 +517,37 @@ router.get('/fetch_products_by_supplier', (req, res) => {
 
 
 
+// Endpoint to fetch all categories
+router.get('/fetch_categories_for_invoice', (req, res) => {
+  const query = "SELECT * FROM categories";
 
+  db.query(query, (err, results) => {
+      if (err) {
+          console.error("Error fetching categories:", err);
+          return res.status(500).json({ message: "Failed to fetch categories." });
+      }
+      res.status(200).json(results); // Return the categories
+  });
+});
+
+// Endpoint to fetch products by category ID
+router.get('/fetch_products_by_category', (req, res) => {
+  const { categoryId } = req.query;
+
+  if (!categoryId) {
+      return res.status(400).json({ message: "Category ID is required." });
+  }
+
+  const query = "SELECT * FROM products WHERE selectedCategory = ?";
+
+  db.query(query, [categoryId], (err, results) => {
+      if (err) {
+          console.error("Error fetching products:", err);
+          return res.status(500).json({ message: "Failed to fetch products." });
+      }
+      res.status(200).json(results); // Return the products for the category
+  });
+});
 
 
 module.exports = router;
