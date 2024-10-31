@@ -562,7 +562,7 @@ router.get('/search', (req, res) => {
 
   // SQL query to search by product name, barcode, or product ID
   const sqlQuery = `
-    SELECT productId, productName, barcode, mrpPrice
+    SELECT productId, productName, barcode, mrpPrice, costPrice, discountPrice, wholesalePrice, lockedPrice
     FROM products
     WHERE productName LIKE ? OR barcode LIKE ? OR productId LIKE ?
     LIMIT 10
