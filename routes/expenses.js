@@ -28,102 +28,84 @@ const createExpensesTable = async () => {
 // Initialize the table
 createExpensesTable();
 
-// GET endpoint to fetch today's expenses for a specific user
-router.get('/today/:user', async (req, res) => {
-  const { user } = req.params;
-  const today = moment().format('YYYY-MM-DD');
+
+
+// Route to get expenses for a specific user on the current date
+router.get('/fecth_expenses', async (req, res) => {
+  const { user } = req.query;
+  const today = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
 
   const query = `
-    SELECT * FROM expenses 
+    SELECT id, user, store, remark AS reason, amount, saveTime AS date
+    FROM expenses
     WHERE user = ? AND DATE(saveTime) = ?
     ORDER BY saveTime DESC
   `;
 
   try {
-    const results = await db.query(query, [user, today]);
-    res.status(200).json(results); // Always return an array
+    // Destructure the response to get the rows
+    const [results] = await db.query(query, [user, today]);
+
+    // Check if the results are valid
+    if (Array.isArray(results)) {
+      res.status(200).json(results);
+    } else {
+      res.status(500).json({ message: 'Unexpected response format from database' });
+    }
   } catch (err) {
-    console.error('Error fetching today’s expenses:', err);
-    res.status(500).json({ message: 'Failed to fetch expenses', error: err.message });
+    console.error('Error fetching expenses:', err);
+    res.status(500).json({ message: 'Failed to fetch expenses' });
   }
 });
 
-// POST endpoint to add a new expense
-router.post('/add', async (req, res) => {
-  const { user, store, remark, amount } = req.body;
 
-  // Validate required fields
-  if (!user || !store || amount === undefined) { // `remark` is optional
-    return res.status(400).json({ message: 'User, store, and amount are required' });
+
+
+// Route to add a new expense
+router.post('/addExpenses', async (req, res) => {
+  const { user, store, amount, reason } = req.body;
+
+  if (!user || !store || !amount || !reason) {
+    return res.status(400).json({ message: 'All fields are required' });
   }
 
-  // Validate amount
-  const parsedAmount = parseFloat(amount);
-  if (isNaN(parsedAmount) || parsedAmount <= 0) {
-    return res.status(400).json({ message: 'Amount must be a positive number' });
-  }
-
-  const insertQuery = `
-    INSERT INTO expenses (user, store, remark, amount)
-    VALUES (?, ?, ?, ?)
+  const query = `
+    INSERT INTO expenses (user, store, amount, remark, saveTime)
+    VALUES (?, ?, ?, ?, NOW())
   `;
 
   try {
-    const result = await db.query(insertQuery, [user, store, remark || '', parsedAmount]);
-    res.status(201).json({
-      message: 'Expense saved successfully',
-      expenseId: result.insertId,
-      saveTime: moment().format('YYYY-MM-DD HH:mm:ss'),
-    });
+    await db.query(query, [user, store, parseFloat(amount), reason]);
+    res.status(201).json({ message: 'Expense added successfully' });
   } catch (err) {
-    console.error('Error saving expense:', err);
-    res.status(500).json({ message: 'Failed to save expense', error: err.message });
+    console.error('Error adding expense:', err);
+    res.status(500).json({ message: 'Failed to add expense' });
   }
 });
+// Route to update an existing expense
+router.put('/updateExpense', async (req, res) => {
+  const { id, amount, reason } = req.body;
 
-// PUT endpoint to update an existing expense
-router.put('/update/:id', async (req, res) => {
-  const { id } = req.params;
-  const { amount, remark } = req.body;
-
-  // Ensure at least one field is provided
-  if (amount === undefined && remark === undefined) {
-    return res.status(400).json({ message: 'Please provide at least one field to update' });
+  if (!id || !amount || !reason) {
+    return res.status(400).json({ message: 'ID, amount, and reason are required' });
   }
 
-  const fields = [];
-  const values = [];
-
-  if (amount !== undefined) {
-    const parsedAmount = parseFloat(amount);
-    if (isNaN(parsedAmount) || parsedAmount <= 0) {
-      return res.status(400).json({ message: 'Amount must be a positive number' });
-    }
-    fields.push('amount = ?');
-    values.push(parsedAmount);
-  }
-
-  if (remark !== undefined) {
-    fields.push('remark = ?');
-    values.push(remark);
-  }
-
-  values.push(id); // For WHERE clause
-
-  const updateQuery = `
-    UPDATE expenses SET ${fields.join(', ')} WHERE id = ?
+  const query = `
+    UPDATE expenses
+    SET amount = ?, remark = ?
+    WHERE id = ?
   `;
 
   try {
-    const result = await db.query(updateQuery, values);
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: 'Expense not found' });
-    }
+    await db.query(query, [parseFloat(amount), reason, id]);
     res.status(200).json({ message: 'Expense updated successfully' });
   } catch (err) {
     console.error('Error updating expense:', err);
-    res.status(500).json({ message: 'Failed to update expense', error: err.message });
+    res.status(500).json({ message: 'Failed to update expense' });
   }
 });
+
+
+
 
 module.exports = router;
