@@ -11,9 +11,10 @@ const createExpensesTable = async () => {
       id INT AUTO_INCREMENT PRIMARY KEY,
       user VARCHAR(255) NOT NULL,
       store VARCHAR(255) NOT NULL,
-      remark TEXT,
-      amount DECIMAL(10, 2) NOT NULL,
-      saveTime DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      remark VARCHAR(2500),
+      amount DECIMAL(10, 4) NOT NULL,
+      saveTime DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      insertAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
   `;
 
@@ -28,8 +29,6 @@ const createExpensesTable = async () => {
 // Initialize the table
 createExpensesTable();
 
-
-
 // Route to get expenses for a specific user on the current date
 router.get('/fecth_expenses', async (req, res) => {
   const { user } = req.query;
@@ -43,21 +42,22 @@ router.get('/fecth_expenses', async (req, res) => {
   `;
 
   try {
-    // Destructure the response to get the rows
-    const [results] = await db.query(query, [user, today]);
+    const results = await db.query(query, [user, today]);
 
-    // Check if the results are valid
-    if (Array.isArray(results)) {
-      res.status(200).json(results);
+    // Log the entire response structure
+    console.log('Database query results:', results);
+
+    if (Array.isArray(results) || Array.isArray(results[0])) {
+      const data = Array.isArray(results[0]) ? results[0] : results;
+      res.status(200).json(data);
     } else {
-      res.status(500).json({ message: 'Unexpected response format from database' });
+      throw new Error('Unexpected response format from database');
     }
   } catch (err) {
-    console.error('Error fetching expenses:', err);
-    res.status(500).json({ message: 'Failed to fetch expenses' });
+    console.error('Error fetching expenses:', err); // Log actual error details
+    res.status(500).json({ message: 'Failed to fetch expenses', error: err.message });
   }
 });
-
 
 
 
@@ -70,8 +70,8 @@ router.post('/addExpenses', async (req, res) => {
   }
 
   const query = `
-    INSERT INTO expenses (user, store, amount, remark, saveTime)
-    VALUES (?, ?, ?, ?, NOW())
+    INSERT INTO expenses (user, store, amount, remark, saveTime, insertAt)
+    VALUES (?, ?, ?, ?, NOW(), NOW())
   `;
 
   try {
@@ -82,6 +82,7 @@ router.post('/addExpenses', async (req, res) => {
     res.status(500).json({ message: 'Failed to add expense' });
   }
 });
+
 // Route to update an existing expense
 router.put('/updateExpense', async (req, res) => {
   const { id, amount, reason } = req.body;
@@ -104,8 +105,5 @@ router.put('/updateExpense', async (req, res) => {
     res.status(500).json({ message: 'Failed to update expense' });
   }
 });
-
-
-
 
 module.exports = router;
