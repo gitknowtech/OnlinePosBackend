@@ -628,6 +628,82 @@ router.get('/search', (req, res) => {
 
 
 
+// PUT route to update a product by ID
+// Update product by ID
+router.put('/update_product/:id', async (req, res) => {
+  const productId = req.params.id;
+  const {
+    productName,
+    productNameSinhala,
+    batchNumber,
+    selectedSupplier,
+    selectedCategory,
+    selectedUnit,
+    manufacturingDate,
+    expiringDate,
+    costPrice,
+    mrpPrice,
+    profitPercentage,
+    profitAmount,
+    lockedPrice,
+    imageLink,
+  } = req.body;
+
+  // Update query for the products table
+  const updateProductQuery = `
+    UPDATE products 
+    SET 
+      productName = ?,
+      productNameSinhala = ?,
+      batchNumber = ?,
+      selectedSupplier = ?,
+      selectedCategory = ?,
+      selectedUnit = ?,
+      manufacturingDate = ?,
+      expiringDate = ?,
+      costPrice = ?,
+      mrpPrice = ?,
+      profitPercentage = ?,
+      profitAmount = ?,
+      lockedPrice = ?,
+      imageLink = ?
+    WHERE 
+      productId = ?
+  `;
+
+  try {
+    // Execute the query
+    await db.query(updateProductQuery, [
+      productName,
+      productNameSinhala,
+      batchNumber,
+      selectedSupplier,
+      selectedCategory,
+      selectedUnit,
+      manufacturingDate,
+      expiringDate,
+      costPrice,
+      mrpPrice,
+      profitPercentage,
+      profitAmount,
+      lockedPrice,
+      imageLink,
+      productId,
+    ]);
+
+    // Return a success response
+    res.status(200).json({
+      message: 'Product updated successfully',
+      productId,
+    });
+  } catch (error) {
+    console.error('Error updating product:', error);
+    res.status(500).json({
+      message: 'Error updating product',
+      error: error.message,
+    });
+  }
+});
 
 
 
