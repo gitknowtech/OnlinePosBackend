@@ -234,6 +234,51 @@ router.post('/create_product', (req, res) => {
 });
 
 
+// API to search for products based on a query parameter
+router.get('/search_stock', (req, res) => {
+  const searchTerm = req.query.query;
+
+  if (!searchTerm || searchTerm.trim() === '') {
+    return res.status(400).json({ message: 'Query parameter is required.' });
+  }
+
+  // Construct SQL query to search for products
+  const searchQuery = `
+  SELECT 
+    productId, 
+    productName, 
+    barcode, 
+    mrpPrice AS salePrice, 
+    stockQuantity AS quantity, 
+    wholesalePrice, 
+    discountPrice 
+  FROM 
+    products 
+  WHERE 
+    productName LIKE ? OR 
+    barcode LIKE ? OR 
+    productId LIKE ? OR 
+    mrpPrice LIKE ?
+`;
+
+
+  // Prepare the search term for partial matching
+  const searchValue = `%${searchTerm}%`;
+
+  // Execute the query with prepared statements to prevent SQL injection
+  db.query(searchQuery, [searchValue, searchValue, searchValue, searchValue], (err, results) => {
+    if (err) {
+      console.error('Error executing search query:', err);
+      return res.status(500).json({ message: 'Error executing search query', error: err });
+    }
+
+    // Return the search results
+    res.status(200).json(results);
+  });
+});
+
+
+
 
 router.delete('/delete_removed_product/:productId', (req, res) => {
   const { productId } = req.params;
@@ -529,6 +574,8 @@ router.get('/fetch_categories_for_invoice', (req, res) => {
       res.status(200).json(results); // Return the categories
   });
 });
+
+
 
 // Endpoint to fetch products by category ID
 router.get('/fetch_products_by_category', (req, res) => {
