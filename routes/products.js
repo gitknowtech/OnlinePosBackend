@@ -628,8 +628,7 @@ router.get('/search', (req, res) => {
 
 
 
-// PUT route to update a product by ID
-// Update product by ID
+
 router.put('/update_product/:id', async (req, res) => {
   const productId = req.params.id;
   const {
@@ -649,7 +648,10 @@ router.put('/update_product/:id', async (req, res) => {
     imageLink,
   } = req.body;
 
-  // Update query for the products table
+  // Format date fields if necessary
+  const formattedManufacturingDate = manufacturingDate ? manufacturingDate.split('T')[0] : null;
+  const formattedExpiringDate = expiringDate ? expiringDate.split('T')[0] : null;
+
   const updateProductQuery = `
     UPDATE products 
     SET 
@@ -672,7 +674,6 @@ router.put('/update_product/:id', async (req, res) => {
   `;
 
   try {
-    // Execute the query
     await db.query(updateProductQuery, [
       productName,
       productNameSinhala,
@@ -680,8 +681,8 @@ router.put('/update_product/:id', async (req, res) => {
       selectedSupplier,
       selectedCategory,
       selectedUnit,
-      manufacturingDate,
-      expiringDate,
+      formattedManufacturingDate,
+      formattedExpiringDate,
       costPrice,
       mrpPrice,
       profitPercentage,
@@ -691,7 +692,6 @@ router.put('/update_product/:id', async (req, res) => {
       productId,
     ]);
 
-    // Return a success response
     res.status(200).json({
       message: 'Product updated successfully',
       productId,
@@ -704,6 +704,7 @@ router.put('/update_product/:id', async (req, res) => {
     });
   }
 });
+
 
 
 

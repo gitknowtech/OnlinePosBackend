@@ -42,10 +42,10 @@ const createBankSupplierTable = () => {
   const createTableQuery = `
     CREATE TABLE IF NOT EXISTS banksupplier (
       id INT AUTO_INCREMENT PRIMARY KEY,
-      supId VARCHAR(255) NOT NULL,
-      supName VARCHAR(255) NOT NULL,
-      supBank VARCHAR(255) NOT NULL,
-      supBankNo VARCHAR(255) NOT NULL,
+      supId VARCHAR(255),
+      supName VARCHAR(255),
+      supBank VARCHAR(255),
+      supBankNo VARCHAR(255),
       saveTime DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
   `;
@@ -123,51 +123,7 @@ createDeleteBankSupplierTable();
 
 
 
-
-// API to create a supplier and save bank details
-router.post("/create_supplier", (req, res) => {
-  const {
-    Supid, Supname, address1, address2, address3, email, idno, mobile1,
-    mobile2, mobile3, company, faxnum, website, status, user, store,
-    bankName, accountNumber
-  } = req.body;
-
-  if (!Supid || !Supname) {
-    return res.status(400).json({ message: "Supplier ID and Supplier Name are required." });
-  }
-
-  const insertSupplierQuery = `
-    INSERT INTO suppliers 
-    (Supid, Supname, address1, address2, address3, email, idno, mobile1, mobile2, mobile3, company, faxnum, website, status, user, store) 
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `;
-  db.query(insertSupplierQuery, [
-    Supid, Supname, address1, address2, address3, email, idno, mobile1,
-    mobile2, mobile3, company, faxnum, website, status, user, store
-  ], (err) => {
-    if (err) {
-      if (err.code === "ER_DUP_ENTRY") {
-        return res.status(400).json({ message: "Duplicate Supplier ID" });
-      }
-      return res.status(500).json({ message: "Error saving supplier." });
-    }
-
-    if (accountNumber && bankName) {
-      const insertBankSupplierQuery = `
-        INSERT INTO banksupplier (supId, supName, supBank, supBankNo) 
-        VALUES (?, ?, ?, ?)
-      `;
-      db.query(insertBankSupplierQuery, [Supid, Supname, bankName, accountNumber], (err) => {
-        if (err) {
-          return res.status(500).json({ message: "Error saving supplier bank details." });
-        }
-        res.status(201).json({ message: "Supplier and bank details added successfully." });
-      });
-    } else {
-      res.status(201).json({ message: "Supplier added successfully without bank details." });
-    }
-  });
-});
+ 
 
 
 
@@ -325,6 +281,24 @@ router.get("/get_suppliers", (req, res) => {
 });
 
 
+// Route to get a single supplier by ID
+router.get("/get_supplier/:id", (req, res) => {
+  const { id } = req.params;
+  const query = "SELECT * FROM suppliers WHERE Supid = ?";
+
+  db.query(query, [id], (err, results) => {
+    if (err) {
+      console.error("Error fetching supplier details:", err);
+      return res.status(500).json({ message: "Error fetching supplier details." });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({ message: "Supplier not found." });
+    }
+
+    res.status(200).json(results[0]); // Send the first result as the supplier details
+  });
+});
 
 
 // API to get all removed suppliers
@@ -342,21 +316,56 @@ router.get("/get_suppliers_removed", (req, res) => {
 
 
 
-// API to get bank details for a specific supplier
+// Route to get all bank details for a specific supplier ID
 router.get("/get_supplier_bank_details/:supId", (req, res) => {
   const { supId } = req.params;
-  const selectBankQuery = `SELECT supBank, supBankNo FROM banksupplier WHERE supId = ?`;
+  
+  const getBankDetailsQuery = `
+    SELECT supBank, supBankNo, saveTime 
+    FROM banksupplier 
+    WHERE supId = ?
+  `;
 
-  db.query(selectBankQuery, [supId], (err, results) => {
+  db.query(getBankDetailsQuery, [supId], (err, results) => {
     if (err) {
-      return res.status(500).json({ message: "Error fetching bank details" });
+      console.error("Error fetching bank details:", err);
+      return res.status(500).json({ message: "Error fetching bank details." });
     }
+
     if (results.length === 0) {
-      return res.status(404).json({ message: "No bank details found for this supplier" });
+      return res.status(404).json({ message: "No bank details found for this supplier." });
     }
-    return res.status(200).json(results[0]);
+
+    res.status(200).json(results);
   });
 });
+
+
+
+// Route to delete a bank detail by bank ID or supId and bank name
+router.delete("/delete_supplier_bank/:id", (req, res) => {
+  const { id } = req.params;
+
+  const deleteBankQuery = `
+    DELETE FROM banksupplier
+    WHERE id = ?
+  `;
+
+  db.query(deleteBankQuery, [id], (err, results) => {
+    if (err) {
+      console.error("Error deleting bank details:", err);
+      return res.status(500).json({ message: "Error deleting bank details." });
+    }
+
+    if (results.affectedRows === 0) {
+      return res.status(404).json({ message: "Bank detail not found." });
+    }
+
+    res.status(200).json({ message: "Bank detail deleted successfully." });
+  });
+});
+
+
 
 
 // API to get bank details for a specific supplier
@@ -488,6 +497,147 @@ router.get("/get_suppliers_stock", (req, res) => {
       return res.status(500).json({ message: "Error fetching suppliers" });
     }
     res.status(200).json(results); // Return matched suppliers
+  });
+});
+
+
+// Route to update a supplier by ID
+router.put("/update_supplier/:id", (req, res) => {
+  const { id } = req.params;
+  const {
+    Supname,
+    address1,
+    address2,
+    address3,
+    email,
+    idno,
+    mobile1,
+    mobile2,
+    mobile3,
+    company,
+    faxnum,
+    website,
+    bankName,
+    accountNumber,
+  } = req.body;
+
+  // Validate required fields
+  if (!Supname) {
+    return res.status(400).json({ message: "Supplier Name is required." });
+  }
+
+  // SQL query to update the supplier information
+  const updateSupplierQuery = `
+    UPDATE suppliers
+    SET
+      Supname = ?,
+      address1 = ?,
+      address2 = ?,
+      address3 = ?,
+      email = ?,
+      idno = ?,
+      mobile1 = ?,
+      mobile2 = ?,
+      mobile3 = ?,
+      company = ?,
+      faxnum = ?,
+      website = ?
+    WHERE Supid = ?
+  `;
+
+  // Parameters for the supplier query
+  const supplierValues = [
+    Supname,
+    address1,
+    address2,
+    address3,
+    email,
+    idno,
+    mobile1,
+    mobile2,
+    mobile3,
+    company,
+    faxnum,
+    website,
+    id,
+  ];
+
+  // Execute the supplier update query
+  db.query(updateSupplierQuery, supplierValues, (err, results) => {
+    if (err) {
+      console.error("Error updating supplier:", err);
+      return res.status(500).json({ message: "Error updating supplier." });
+    }
+
+    if (results.affectedRows === 0) {
+      return res.status(404).json({ message: "Supplier not found." });
+    }
+
+    // Check if bank details are provided before processing them
+    if (bankName && accountNumber) {
+      // Check if the new bank details are different from the existing ones
+      const checkBankQuery = `
+        SELECT * FROM banksupplier
+        WHERE supId = ? AND supBank = ?
+        ORDER BY saveTime DESC LIMIT 1
+      `;
+
+      db.query(checkBankQuery, [id, bankName], (err, bankResults) => {
+        if (err) {
+          console.error("Error checking bank details:", err);
+          return res.status(500).json({ message: "Error checking bank details." });
+        }
+
+        // Log for debugging
+        console.log("Bank check results:", bankResults);
+
+        // If bank exists and account number differs, insert a new record
+        if (bankResults.length > 0) {
+          if (bankResults[0].supBankNo !== accountNumber) {
+            console.log("Different account number detected. Inserting new bank details.");
+
+            const insertBankQuery = `
+              INSERT INTO banksupplier (supId, supName, supBank, supBankNo)
+              VALUES (?, ?, ?, ?)
+            `;
+
+            const bankValues = [id, Supname, bankName, accountNumber];
+            db.query(insertBankQuery, bankValues, (err) => {
+              if (err) {
+                console.error("Error inserting new bank details:", err);
+                return res.status(500).json({ message: "Error inserting new bank details." });
+              }
+
+              return res.status(200).json({ message: "Supplier updated and new bank details added successfully." });
+            });
+          } else {
+            console.log("Bank details are the same. No new data inserted.");
+            return res.status(200).json({ message: "Supplier updated successfully. Bank details unchanged." });
+          }
+        } else {
+          console.log("No existing bank record found. Adding new bank details.");
+          
+          const insertBankQuery = `
+            INSERT INTO banksupplier (supId, supName, supBank, supBankNo)
+            VALUES (?, ?, ?, ?)
+          `;
+
+          const bankValues = [id, Supname, bankName, accountNumber];
+          db.query(insertBankQuery, bankValues, (err) => {
+            if (err) {
+              console.error("Error inserting new bank details:", err);
+              return res.status(500).json({ message: "Error inserting new bank details." });
+            }
+
+            return res.status(200).json({ message: "Supplier updated and bank details added successfully." });
+          });
+        }
+      });
+    } else {
+      // Skip inserting bank details if any value is null or empty
+      console.log("Bank details are not provided or incomplete. Skipping bank data insertion.");
+      return res.status(200).json({ message: "Supplier updated successfully. No bank details were added." });
+    }
   });
 });
 
