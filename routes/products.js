@@ -706,6 +706,29 @@ router.put('/update_product/:id', async (req, res) => {
 });
 
 
+// Get all products for a specific supplier by Supname (matches products table selectedSupplier column)
+router.get('/get_supplier_products/:supplierName', (req, res) => {
+  const { supplierName } = req.params;
+
+  const query = `SELECT * FROM products WHERE selectedSupplier = ?`;
+
+  db.query(query, [supplierName], (err, results) => {
+    if (err) {
+      console.error('Error fetching products by supplier name:', err);
+      return res.status(500).json({ message: 'Error fetching products', error: err });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({ message: 'No products found for this supplier' });
+    }
+
+    res.status(200).json(results);
+  });
+});
+
+
+
+
 
 
 module.exports = router;

@@ -125,6 +125,50 @@ createDeleteBankSupplierTable();
 
  
 
+// API to create a supplier and save bank details
+router.post("/create_supplier", (req, res) => {
+  const {
+    Supid, Supname, address1, address2, address3, email, idno, mobile1,
+    mobile2, mobile3, company, faxnum, website, status, user, store,
+    bankName, accountNumber
+  } = req.body;
+
+  if (!Supid || !Supname) {
+    return res.status(400).json({ message: "Supplier ID and Supplier Name are required." });
+  }
+
+  const insertSupplierQuery = `
+    INSERT INTO suppliers 
+    (Supid, Supname, address1, address2, address3, email, idno, mobile1, mobile2, mobile3, company, faxnum, website, status, user, store) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+  db.query(insertSupplierQuery, [
+    Supid, Supname, address1, address2, address3, email, idno, mobile1,
+    mobile2, mobile3, company, faxnum, website, status, user, store
+  ], (err) => {
+    if (err) {
+      if (err.code === "ER_DUP_ENTRY") {
+        return res.status(400).json({ message: "Duplicate Supplier ID" });
+      }
+      return res.status(500).json({ message: "Error saving supplier." });
+    }
+
+    if (accountNumber && bankName) {
+      const insertBankSupplierQuery = `
+        INSERT INTO banksupplier (supId, supName, supBank, supBankNo) 
+        VALUES (?, ?, ?, ?)
+      `;
+      db.query(insertBankSupplierQuery, [Supid, Supname, bankName, accountNumber], (err) => {
+        if (err) {
+          return res.status(500).json({ message: "Error saving supplier bank details." });
+        }
+        res.status(201).json({ message: "Supplier and bank details added successfully." });
+      });
+    } else {
+      res.status(201).json({ message: "Supplier added successfully without bank details." });
+    }
+  });
+});
 
 
 
