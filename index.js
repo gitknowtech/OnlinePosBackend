@@ -16,7 +16,8 @@ const supplierRoutes = require('./routes/supplier')
 const stockRoutes = require('./routes/stock')
 const invoiceRouter = require('./routes/invoice')
 const expensesRouter = require('./routes/expenses')
-const cusrtomerRouter = require('./routes/customer')
+const customerRouter = require('./routes/customer')
+const supplierPurchaseRouter = require('./routes/purchases')
 
 const app = express();
 app.use(cors());
@@ -36,7 +37,8 @@ app.use('/api/suppliers', supplierRoutes)
 app.use('/api/stock', stockRoutes)
 app.use('/api/invoice', invoiceRouter)
 app.use('/api/expenses', expensesRouter)
-app.use('/api/customer', cusrtomerRouter)
+app.use('/api/customer', customerRouter)
+app.use('/api/purchases', supplierPurchaseRouter)
 
 
 
