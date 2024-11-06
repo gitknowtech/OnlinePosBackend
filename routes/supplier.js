@@ -465,9 +465,7 @@ router.get("/get_supplier_mobile_details/:Supid", (req, res) => {
 });
 
 
-
-
-
+ 
 
 
 
