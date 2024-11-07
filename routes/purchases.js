@@ -31,7 +31,8 @@ function createSupplierPurchaseTables() {
       id INT NOT NULL AUTO_INCREMENT,
       generatedid VARCHAR(5) NOT NULL,
       InvoiceId VARCHAR(50) NOT NULL,
-      ProName VARCHAR(255) NOT NULL,
+      ProCode VARCHAR(255) NOT NULL, 
+      ProName VARCHAR(255) NOT NULL,   
       UnitPrice DECIMAL(10, 2) NOT NULL,
       Quantity DECIMAL(10, 4) NOT NULL,
       Total DECIMAL(10, 2) NOT NULL,
@@ -177,6 +178,9 @@ router.post("/upload_document", upload.array("documents", 10), async (req, res) 
   }
 });
 
+
+
+
 /**
  * Endpoint: POST /save_Purchase_Supplier
  * Description: Saves purchase data into supplier_purchase and supplier_purchase_last tables.
@@ -194,7 +198,7 @@ router.post("/save_Purchase_Supplier", async (req, res) => {
 
     // Begin transaction
     await new Promise((resolve, reject) => {
-      db.beginTransaction(err => {
+      db.beginTransaction((err) => {
         if (err) return reject(err);
         resolve();
       });
@@ -206,7 +210,15 @@ router.post("/save_Purchase_Supplier", async (req, res) => {
       (generatedid, gross_total, total_quantity, total_items, cash_amount, credit_amount, invoice_date, document_link)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `;
-    const { grossTotal, totalQuantity, totalItems, cashAmount, creditAmount, invoiceDate, documentLink } = summary;
+    const {
+      grossTotal,
+      totalQuantity,
+      totalItems,
+      cashAmount,
+      creditAmount,
+      invoiceDate,
+      documentLink,
+    } = summary;
 
     await new Promise((resolve, reject) => {
       db.query(
@@ -219,7 +231,7 @@ router.post("/save_Purchase_Supplier", async (req, res) => {
           cashAmount,
           creditAmount,
           invoiceDate,
-          documentLink
+          documentLink,
         ],
         (err, result) => {
           if (err) reject(err);
@@ -231,23 +243,24 @@ router.post("/save_Purchase_Supplier", async (req, res) => {
     // Insert each purchase into supplier_purchase
     const insertPurchaseQuery = `
       INSERT INTO supplier_purchase 
-      (generatedid, InvoiceId, ProName, UnitPrice, Quantity, Total, Supplier)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      (generatedid, InvoiceId, ProCode, ProName, UnitPrice, Quantity, Total, Supplier)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     for (const purchase of purchases) {
-      const { InvoiceId, ProName, UnitPrice, Quantity, Total, Supplier } = purchase;
+      const { InvoiceId, ProCode, ProName, UnitPrice, Quantity, Total, Supplier } = purchase;
       await new Promise((resolve, reject) => {
         db.query(
           insertPurchaseQuery,
           [
             generatedid,
             InvoiceId,
+            ProCode,       // Include product code in the insertion
             ProName,
             UnitPrice,
             Quantity,
             Total,
-            Supplier
+            Supplier,
           ],
           (err, result) => {
             if (err) reject(err);
@@ -259,7 +272,7 @@ router.post("/save_Purchase_Supplier", async (req, res) => {
 
     // Commit transaction
     await new Promise((resolve, reject) => {
-      db.commit(err => {
+      db.commit((err) => {
         if (err) return reject(err);
         resolve();
       });
@@ -274,5 +287,91 @@ router.post("/save_Purchase_Supplier", async (req, res) => {
     });
   }
 });
+
+
+
+
+router.get("/get_purchase/:invoiceId", async (req, res) => {
+  const { invoiceId } = req.params;
+
+  try {
+    // Fetch generatedid, Supplier ID using the InvoiceId from supplier_purchase table
+    const generatedIdQuery = `
+      SELECT generatedid, Supplier FROM supplier_purchase WHERE InvoiceId = ? LIMIT 1
+    `;
+
+    const [generatedIdResult] = await new Promise((resolve, reject) => {
+      db.query(generatedIdQuery, [invoiceId], (err, results) => {
+        if (err) return reject(err);
+        resolve(results);
+      });
+    });
+
+    if (!generatedIdResult) {
+      return res.status(404).send({ error: "Invoice ID not found" });
+    }
+
+    const generatedid = generatedIdResult.generatedid;
+    const supplierId = generatedIdResult.Supplier; // Assuming Supplier column contains Supplier ID
+
+    // Fetch supplier name from suppliers table using supplierId
+    const supplierQuery = `
+      SELECT Supname FROM suppliers WHERE Supid = ?
+    `;
+    const [supplierResult] = await new Promise((resolve, reject) => {
+      db.query(supplierQuery, [supplierId], (err, results) => {
+        if (err) return reject(err);
+        resolve(results);
+      });
+    });
+
+    const supplierName = supplierResult ? supplierResult.Supname : "";
+
+    // Fetch summary data from supplier_purchase_last using generatedid
+    const summaryQuery = `
+      SELECT * FROM supplier_purchase_last WHERE generatedid = ?
+    `;
+    const [summaryResult] = await new Promise((resolve, reject) => {
+      db.query(summaryQuery, [generatedid], (err, results) => {
+        if (err) return reject(err);
+        resolve(results);
+      });
+    });
+
+    if (!summaryResult) {
+      return res.status(404).send({ error: "Summary not found for the given generated ID" });
+    }
+
+    // Add supplier name to summaryResult
+    summaryResult.SupplierName = supplierName;
+
+    // Fetch purchase items from supplier_purchase using generatedid
+    const purchasesQuery = `
+      SELECT * FROM supplier_purchase WHERE generatedid = ?
+    `;
+    const purchasesResults = await new Promise((resolve, reject) => {
+      db.query(purchasesQuery, [generatedid], (err, results) => {
+        if (err) return reject(err);
+        resolve(results);
+      });
+    });
+
+    // Send the data back to the client
+    res.status(200).send({
+      summary: summaryResult,
+      purchases: purchasesResults
+    });
+  } catch (error) {
+    console.error("Error fetching purchase data:", error);
+    res.status(500).send({ error: "Failed to fetch purchase data" });
+  }
+});
+
+module.exports = router;
+
+
+
+
+
 
 module.exports = router;
