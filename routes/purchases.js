@@ -367,11 +367,36 @@ router.get("/get_purchase/:invoiceId", async (req, res) => {
   }
 });
 
-module.exports = router;
+router.put("/update_payment/:generatedid", async (req, res) => {
+  const { generatedid } = req.params;
+  const { cashAmount, creditAmount } = req.body;
 
+  try {
+    // Update the supplier_purchase_last table
+    const updateQuery = `
+      UPDATE supplier_purchase_last
+      SET cash_amount = ?, credit_amount = ?
+      WHERE generatedid = ?
+    `;
+    await new Promise((resolve, reject) => {
+      db.query(
+        updateQuery,
+        [cashAmount, creditAmount, generatedid],
+        (err, result) => {
+          if (err) return reject(err);
+          resolve(result);
+        }
+      );
+    });
+    res.status(200).send({ message: "Payment amounts updated successfully." });
+  } catch (error) {
+    console.error("Error updating payment amounts:", error);
+    res.status(500).send({ error: "Failed to update payment amounts." });
+  }
+});
 
-
-
+// Serve static files from the 'uploads' directory
+router.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 
 module.exports = router;
