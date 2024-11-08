@@ -22,6 +22,7 @@ function createSupplierPurchaseTables() {
       credit_amount DECIMAL(10, 2) NOT NULL,
       invoice_date DATE NOT NULL,
       document_link VARCHAR(255) NOT NULL,
+      refference VARCHAR(255),
       PRIMARY KEY (id)
     );
   `;
@@ -367,36 +368,82 @@ router.get("/get_purchase/:invoiceId", async (req, res) => {
   }
 });
 
+
+
 router.put("/update_payment/:generatedid", async (req, res) => {
   const { generatedid } = req.params;
-  const { cashAmount, creditAmount } = req.body;
+  const { cashAmount, creditAmount, referenceNumber } = req.body;
 
   try {
     // Update the supplier_purchase_last table
     const updateQuery = `
       UPDATE supplier_purchase_last
-      SET cash_amount = ?, credit_amount = ?
+      SET cash_amount = ?, credit_amount = ?, refference = ?
       WHERE generatedid = ?
     `;
     await new Promise((resolve, reject) => {
       db.query(
         updateQuery,
-        [cashAmount, creditAmount, generatedid],
+        [cashAmount, creditAmount, referenceNumber, generatedid],
         (err, result) => {
           if (err) return reject(err);
           resolve(result);
         }
       );
     });
-    res.status(200).send({ message: "Payment amounts updated successfully." });
+    res.status(200).send({ message: "Payment amounts and reference number updated successfully." });
   } catch (error) {
-    console.error("Error updating payment amounts:", error);
-    res.status(500).send({ error: "Failed to update payment amounts." });
+    console.error("Error updating payment amounts and reference number:", error);
+    res.status(500).send({ error: "Failed to update payment amounts and reference number." });
   }
 });
 
+
+
+
 // Serve static files from the 'uploads' directory
 router.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+
+
+
+/**
+ * Endpoint: GET /get_purchase_summaries
+ * Description: Retrieves all purchase summaries with supplier names.
+ */
+router.get("/get_purchase_summaries", async (req, res) => {
+  try {
+    const summariesQuery = `
+      SELECT spl.*, s.Supname AS SupplierName
+      FROM supplier_purchase_last spl
+      LEFT JOIN (
+        SELECT generatedid, Supplier
+        FROM supplier_purchase
+        GROUP BY generatedid, Supplier
+      ) sp ON spl.generatedid = sp.generatedid
+      LEFT JOIN suppliers s ON sp.Supplier = s.Supid
+    `;
+
+    const summaries = await new Promise((resolve, reject) => {
+      db.query(summariesQuery, (err, results) => {
+        if (err) return reject(err);
+        resolve(results);
+      });
+    });
+
+    res.status(200).send(summaries);
+  } catch (error) {
+    console.error("Error fetching purchase summaries:", error);
+    res.status(500).send({ error: "Failed to fetch purchase summaries" });
+  }
+});
+
+
+
+
+
+
+
 
 
 module.exports = router;
