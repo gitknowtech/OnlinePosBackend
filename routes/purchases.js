@@ -6,6 +6,8 @@ const multer = require("multer");
 const path = require('path'); // For handling file paths
 const fs = require('fs'); // For file system operations
 const PDFDocument = require('pdfkit'); // For generating PDFs
+const moment = require("moment"); // Ensure moment.js is installed
+
 
 const router = express.Router(); 
 
@@ -60,13 +62,42 @@ function createSupplierPurchaseTables() {
   });
 }
 
-// Invoke table creation on server start
+
+
+
+const createSupplierPurchasePaymentTable = async () => {
+  const createTableQuery = `
+    CREATE TABLE IF NOT EXISTS supplier_purchase_payment (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      generatedid VARCHAR(255) NOT NULL,
+      payment DECIMAL(10, 2) NOT NULL, -- Payment difference
+      refference VARCHAR(255),
+      saved_time DATETIME NOT NULL,
+      INDEX (generatedid)
+    );
+  `;
+
+  try {
+    await new Promise((resolve, reject) => {
+      db.query(createTableQuery, (err, result) => {
+        if (err) return reject(err);
+        console.log("Table supplier_purchase_payment created successfully or already exists.");
+        resolve(result);
+      });
+    });
+  } catch (error) {
+    console.error("Error creating supplier_purchase_payment table:", error);
+  }
+};
+
+// Call the function to create the table
+createSupplierPurchasePaymentTable();
 createSupplierPurchaseTables();
 
-/**
- * Helper Function: generateUniqueId
- * Generates a unique 5-digit ID ensuring it's not present in supplier_purchase_last table.
- */
+
+
+
+
 const generateUniqueId = async () => {
   const generateId = () => Math.floor(10000 + Math.random() * 90000).toString();
 
@@ -375,6 +406,27 @@ router.put("/update_payment/:generatedid", async (req, res) => {
   const { cashAmount, creditAmount, referenceNumber } = req.body;
 
   try {
+    // Fetch the current cash amount from supplier_purchase_last
+    const fetchQuery = `
+      SELECT cash_amount FROM supplier_purchase_last WHERE generatedid = ?
+    `;
+    const currentCashAmount = await new Promise((resolve, reject) => {
+      db.query(fetchQuery, [generatedid], (err, result) => {
+        if (err) return reject(err);
+        if (result.length === 0) return reject(new Error("Generated ID not found."));
+        resolve(result[0].cash_amount);
+      });
+    });
+
+    // Calculate the payment difference
+    const paymentDifference = parseFloat(cashAmount) - parseFloat(currentCashAmount);
+
+    if (paymentDifference <= 0) {
+      return res
+        .status(400)
+        .send({ error: "Cash amount must be greater than the current value to update." });
+    }
+
     // Update the supplier_purchase_last table
     const updateQuery = `
       UPDATE supplier_purchase_last
@@ -391,10 +443,30 @@ router.put("/update_payment/:generatedid", async (req, res) => {
         }
       );
     });
-    res.status(200).send({ message: "Payment amounts and reference number updated successfully." });
+
+    // Save the payment difference in supplier_purchase_payment table
+    const saveQuery = `
+      INSERT INTO supplier_purchase_payment (generatedid, payment, refference, saved_time)
+      VALUES (?, ?, ?, ?)
+    `;
+    const savedTime = moment().format("YYYY-MM-DD HH:mm:ss");
+    await new Promise((resolve, reject) => {
+      db.query(
+        saveQuery,
+        [generatedid, paymentDifference, referenceNumber, savedTime],
+        (err, result) => {
+          if (err) return reject(err);
+          resolve(result);
+        }
+      );
+    });
+
+    res.status(200).send({
+      message: "Payment amounts and reference number updated and saved successfully.",
+    });
   } catch (error) {
-    console.error("Error updating payment amounts and reference number:", error);
-    res.status(500).send({ error: "Failed to update payment amounts and reference number." });
+    console.error("Error updating and saving payment data:", error);
+    res.status(500).send({ error: "Failed to update and save payment data." });
   }
 });
 
@@ -440,6 +512,76 @@ router.get("/get_purchase_summaries", async (req, res) => {
 
 
 
+
+
+// Get payment history for a given generatedid
+router.get("/get_payment_history/:generatedid", async (req, res) => {
+  const { generatedid } = req.params;
+
+  try {
+    const query = `
+      SELECT id, payment, refference, saved_time 
+      FROM supplier_purchase_payment 
+      WHERE generatedid = ? 
+      ORDER BY saved_time DESC
+    `;
+
+    const results = await new Promise((resolve, reject) => {
+      db.query(query, [generatedid], (err, results) => {
+        if (err) return reject(err);
+        resolve(results);
+      });
+    });
+
+    if (results.length === 0) {
+      return res.status(404).json({ message: "No payment history found for the given ID." });
+    }
+
+    res.status(200).json(results);
+  } catch (error) {
+    console.error("Error fetching payment history:", error);
+    res.status(500).json({ error: "Failed to fetch payment history." });
+  }
+});
+
+
+
+
+router.delete("/delete_payment", async (req, res) => {
+  const { id, payment } = req.body;
+
+  try {
+    // Delete the specific payment record from supplier_purchase_payment
+    const deleteQuery = `
+      DELETE FROM supplier_purchase_payment
+      WHERE id = ?
+    `;
+    await new Promise((resolve, reject) => {
+      db.query(deleteQuery, [id], (err, result) => {
+        if (err) return reject(err);
+        resolve(result);
+      });
+    });
+
+    // Update the supplier_purchase_last table
+    const updateQuery = `
+      UPDATE supplier_purchase_last
+      SET cash_amount = cash_amount - ?, credit_amount = credit_amount + ?
+      WHERE generatedid = (SELECT generatedid FROM supplier_purchase_payment WHERE id = ?)
+    `;
+    await new Promise((resolve, reject) => {
+      db.query(updateQuery, [payment, payment, id], (err, result) => {
+        if (err) return reject(err);
+        resolve(result);
+      });
+    });
+
+    res.status(200).send({ message: "Payment record deleted and totals updated successfully." });
+  } catch (error) {
+    console.error("Error deleting payment record and updating totals:", error);
+    res.status(500).send({ error: "Failed to delete payment record and update totals." });
+  }
+});
 
 
 
