@@ -545,13 +545,30 @@ router.get("/get_payment_history/:generatedid", async (req, res) => {
 });
 
 
-
-
-router.delete("/delete_payment", async (req, res) => {
-  const { id, payment } = req.body;
+router.delete("/delete_payment/:id", async (req, res) => {
+  const { id } = req.params; // Extract ID from params
+  const { payment } = req.body; // Extract payment from body
 
   try {
-    // Delete the specific payment record from supplier_purchase_payment
+    // Fetch the related `generatedid` before deleting the record
+    const generatedIdQuery = `
+      SELECT generatedid FROM supplier_purchase_payment WHERE id = ?
+    `;
+    const generatedIdResult = await new Promise((resolve, reject) => {
+      db.query(generatedIdQuery, [id], (err, result) => {
+        if (err) return reject(err);
+        resolve(result);
+      });
+    });
+
+    // Ensure the record exists
+    if (generatedIdResult.length === 0) {
+      return res.status(404).send({ error: "Payment record not found." });
+    }
+
+    const generatedId = generatedIdResult[0].generatedid;
+
+    // Delete the specific payment record
     const deleteQuery = `
       DELETE FROM supplier_purchase_payment
       WHERE id = ?
@@ -563,14 +580,14 @@ router.delete("/delete_payment", async (req, res) => {
       });
     });
 
-    // Update the supplier_purchase_last table
+    // Update the supplier_purchase_last table using the retrieved `generatedid`
     const updateQuery = `
       UPDATE supplier_purchase_last
       SET cash_amount = cash_amount - ?, credit_amount = credit_amount + ?
-      WHERE generatedid = (SELECT generatedid FROM supplier_purchase_payment WHERE id = ?)
+      WHERE generatedid = ?
     `;
     await new Promise((resolve, reject) => {
-      db.query(updateQuery, [payment, payment, id], (err, result) => {
+      db.query(updateQuery, [payment, payment, generatedId], (err, result) => {
         if (err) return reject(err);
         resolve(result);
       });
@@ -585,6 +602,69 @@ router.delete("/delete_payment", async (req, res) => {
 
 
 
+
+// Delete related data based on generatedid
+router.delete("/delete_whole_data/:generatedid", async (req, res) => {
+  const { generatedid } = req.params;
+
+  try {
+    // Start a transaction
+    await new Promise((resolve, reject) => {
+      db.beginTransaction((err) => {
+        if (err) return reject(err);
+        resolve();
+      });
+    });
+
+    // Step 1: Delete from supplier_purchase_payment
+    const deletePaymentQuery = `DELETE FROM supplier_purchase_payment WHERE generatedid = ?`;
+    await new Promise((resolve, reject) => {
+      db.query(deletePaymentQuery, [generatedid], (err, result) => {
+        if (err) return reject(err);
+        resolve(result);
+      });
+    });
+
+    // Step 2: Delete from supplier_purchase
+    const deletePurchaseQuery = `DELETE FROM supplier_purchase WHERE generatedid = ?`;
+    await new Promise((resolve, reject) => {
+      db.query(deletePurchaseQuery, [generatedid], (err, result) => {
+        if (err) return reject(err);
+        resolve(result);
+      });
+    });
+
+    // Step 3: Delete from supplier_purchase_last
+    const deleteLastQuery = `DELETE FROM supplier_purchase_last WHERE generatedid = ?`;
+    await new Promise((resolve, reject) => {
+      db.query(deleteLastQuery, [generatedid], (err, result) => {
+        if (err) return reject(err);
+        resolve(result);
+      });
+    });
+
+    // Commit the transaction
+    await new Promise((resolve, reject) => {
+      db.commit((err) => {
+        if (err) {
+          return db.rollback(() => reject(err));
+        }
+        resolve();
+      });
+    });
+
+    res.status(200).send({ message: "All related data deleted successfully." });
+  } catch (error) {
+    console.error("Error deleting related data:", error);
+
+    // Rollback the transaction on error
+    await new Promise((resolve, reject) => {
+      db.rollback(() => reject(error));
+    });
+
+    res.status(500).send({ error: "Failed to delete related data." });
+  }
+});
 
 
 

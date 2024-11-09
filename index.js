@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const db = require('../OnlinePosBackend/db'); 
 const moment = require('moment'); 
+const crypto = require('crypto');
 const productRoutes = require('./routes/products')
 const companyRoute = require('./routes/company')
 const categoryRoute = require('./routes/category')
@@ -49,6 +50,27 @@ if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir);
 }
 
+// Encryption configuration
+const algorithm = 'aes-256-cbc';
+const key = crypto.randomBytes(32); // Replace this with a securely stored key
+const iv = crypto.randomBytes(16); // Replace this with a securely stored IV
+
+// Encrypt function
+const encryptPassword = (password) => {
+  const cipher = crypto.createCipheriv(algorithm, key, iv);
+  let encrypted = cipher.update(password, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  return { encryptedPassword: encrypted, iv: iv.toString('hex') };
+};
+
+// Decrypt function
+const decryptPassword = (encryptedPassword, iv) => {
+  const decipher = crypto.createDecipheriv(algorithm, key, Buffer.from(iv, 'hex'));
+  let decrypted = decipher.update(encryptedPassword, 'hex', 'utf8');
+  decrypted += decipher.final('utf8');
+  return decrypted;
+};
+
 
 
 // Configure multer for handling file uploads
@@ -75,15 +97,15 @@ const createUserTable = () => {
       Email VARCHAR(255) NOT NULL UNIQUE,
       UserName VARCHAR(255) NOT NULL UNIQUE,
       Password VARCHAR(255) NOT NULL,
+      iv VARCHAR(255) NOT NULL,
       Image VARCHAR(255),
       Type VARCHAR(255) NOT NULL,
       Store VARCHAR(255) NOT NULL,
-      register_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, 
-      last_login DATETIME DEFAULT NULL 
+      register_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      last_login DATETIME DEFAULT NULL
     )
   `;
 
-  // Execute the query to create the table
   db.query(createTableQuery, (err, result) => {
     if (err) {
       console.error('Error creating users table:', err);
@@ -129,7 +151,8 @@ app.get("/api/user/:username", (req, res) => {
 
 const bcrypt = require('bcrypt');
 
-// POST route to handle form data and file upload for inserting admin data
+
+
 // POST route to handle form data and file upload for inserting admin data
 app.post('/create-admin', upload.single('Image'), async (req, res) => {
   const { Name, Email, UserName, Password } = req.body;
@@ -163,6 +186,50 @@ app.post('/create-admin', upload.single('Image'), async (req, res) => {
     res.status(500).json({ error: err.message || 'Server error' }); // Return a detailed error message
   }
 });
+
+
+
+
+
+// POST route to handle form data and file upload for inserting user data
+app.post('/create-user', upload.single('Image'), async (req, res) => {
+  const { Name, Email, UserName, Password } = req.body;
+  const imagePath = req.file ? req.file.path : null;
+
+  try {
+    const { encryptedPassword, iv } = encryptPassword(Password);
+    const currentTime = moment().format('YYYY-MM-DD HH:mm:ss');
+
+    const insertQuery = `
+      INSERT INTO users (Name, Email, UserName, Password, iv, Image, Type, Store, register_time, last_login)
+      VALUES (?, ?, ?, ?, ?, ?, 'user', 'all', ?, ?)
+    `;
+
+    db.query(insertQuery, [Name, Email, UserName, encryptedPassword, iv, imagePath, currentTime, currentTime], (err, result) => {
+      if (err) {
+        console.error('Database error:', err);
+        return res.status(500).json({ error: JSON.stringify(err) });
+      }
+      res.status(200).json({ message: 'User account created successfully', id: result.insertId });
+    });
+  } catch (err) {
+    console.error('Error during encryption or database query:', err);
+    res.status(500).json({ error: err.message || 'Server error' });
+  }
+});
+
+// Fetch all users
+app.get("/api/users/get_users", (req, res) => {
+  const query = "SELECT id, Name, Email, UserName, Password, iv, Type FROM users";
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error("Error fetching users:", err);
+      return res.status(500).json({ message: "Failed to fetch users." });
+    }
+    res.status(200).json(results);
+  });
+});
+
 
 
 
@@ -256,6 +323,111 @@ app.get("/api/get_banks", (req, res) => {
     res.status(200).json(results);
   });
 });
+
+
+
+
+
+app.get('/check-duplicate', (req, res) => {
+  const { Email, UserName } = req.query;
+
+  const checkQuery = `
+    SELECT 
+      CASE WHEN EXISTS (SELECT 1 FROM users WHERE Email = ?) THEN 1 ELSE 0 END AS emailExists,
+      CASE WHEN EXISTS (SELECT 1 FROM users WHERE UserName = ?) THEN 1 ELSE 0 END AS usernameExists
+  `;
+
+  db.query(checkQuery, [Email, UserName], (err, result) => {
+    if (err) {
+      console.error('Database error:', err);
+      return res.status(500).json({ message: "Internal server error", error: err });
+    }
+
+    const { emailExists, usernameExists } = result[0];
+    res.status(200).json({ emailExists: !!emailExists, usernameExists: !!usernameExists });
+  });
+});
+
+
+
+
+// Delete user
+app.delete("/api/users/delete_user/:UserName", (req, res) => {
+  const { UserName } = req.params;
+
+  const query = "DELETE FROM users WHERE UserName = ?";
+  db.query(query, [UserName], (err, result) => {
+    if (err) {
+      console.error("Error deleting user:", err);
+      return res.status(500).json({ message: "Failed to delete user." });
+    }
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "User not found." });
+    }
+    res.status(200).json({ message: "User deleted successfully." });
+  });
+});
+
+
+
+
+// Fetch All Users
+app.get("/api/users/get_users", (req, res) => {
+  const query = "SELECT id, Name, Email, UserName, Password, Type FROM users";
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error("Error fetching users:", err);
+      return res.status(500).json({ message: "Failed to fetch users." });
+    }
+    res.status(200).json(results);
+  });
+});
+
+
+
+// Fetch All Users (excluding admin users)
+app.get("/api/users/get_users_new", (req, res) => {
+  const query = `
+    SELECT id, Name, Email, UserName, Password, Type, Store 
+    FROM users 
+    WHERE Type != 'admin'
+  `;
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error("Error fetching users:", err);
+      return res.status(500).json({ message: "Failed to fetch users." });
+    }
+    res.status(200).json(results);
+  });
+});
+
+
+
+
+// API to get the decrypted password
+app.get('/api/users/get_password/:UserName', (req, res) => {
+  const { UserName } = req.params;
+
+  const query = 'SELECT Password, iv FROM users WHERE UserName = ?';
+  db.query(query, [UserName], (err, results) => {
+    if (err) {
+      console.error('Error fetching password:', err);
+      return res.status(500).json({ message: 'Failed to fetch password.' });
+    }
+    if (results.length === 0) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    try {
+      const decryptedPassword = decryptPassword(results[0].Password, results[0].iv);
+      res.status(200).json({ password: decryptedPassword });
+    } catch (error) {
+      console.error('Error decrypting password:', error);
+      res.status(500).json({ message: 'Failed to decrypt password.' });
+    }
+  });
+});
+
 
 
 // Start the server
