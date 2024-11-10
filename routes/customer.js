@@ -219,4 +219,34 @@ router.put('/update_customer/:cusId', (req, res) => {
 });
 
 
+
+
+// API to fetch customers by mobile number (supports both mobile1 and mobile2)
+router.get('/customers', (req, res) => {
+  const mobile = req.query.mobile;
+
+  if (!mobile) {
+    return res.status(400).json({ message: 'Mobile number is required.' });
+  }
+
+  const query = `
+    SELECT id, cusName, mobile1, mobile2
+    FROM customers
+    WHERE mobile1 LIKE ? OR mobile2 LIKE ?
+    LIMIT 5
+  `;
+
+  db.query(query, [`%${mobile}%`, `%${mobile}%`], (err, results) => {
+    if (err) {
+      console.error('Error fetching customers:', err.message);
+      return res.status(500).json({ message: 'Error fetching customers' });
+    }
+
+    res.json(results);
+  });
+});
+
+
+
+
 module.exports = router;

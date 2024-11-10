@@ -50,25 +50,45 @@ if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir);
 }
 
-// Encryption configuration
-const algorithm = 'aes-256-cbc';
-const key = crypto.randomBytes(32); // Replace this with a securely stored key
-const iv = crypto.randomBytes(16); // Replace this with a securely stored IV
 
-// Encrypt function
-const encryptPassword = (password) => {
-  const cipher = crypto.createCipheriv(algorithm, key, iv);
-  let encrypted = cipher.update(password, 'utf8', 'hex');
-  encrypted += cipher.final('hex');
-  return { encryptedPassword: encrypted, iv: iv.toString('hex') };
+
+
+// Generate a 32-byte key from the environment variable or a default string
+const generateKey = () => {
+  return crypto
+    .createHash('sha256')
+    .update(process.env.SECRET_KEY || 'mySuperSecretKey')
+    .digest('base64')
+    .substr(0, 32); // Ensure exactly 32 bytes
 };
 
-// Decrypt function
+// Encrypt the password
+const encryptPassword = (password) => {
+  const algorithm = 'aes-256-ctr';
+  const key = generateKey();
+  const iv = crypto.randomBytes(16); // 16 bytes for IV
+
+  const cipher = crypto.createCipheriv(algorithm, key, iv);
+  const encrypted = Buffer.concat([cipher.update(password), cipher.final()]);
+
+  return {
+    iv: iv.toString('hex'),
+    encryptedPassword: encrypted.toString('hex'),
+  };
+};
+
+// Decrypt the password
 const decryptPassword = (encryptedPassword, iv) => {
+  const algorithm = 'aes-256-ctr';
+  const key = generateKey();
+
   const decipher = crypto.createDecipheriv(algorithm, key, Buffer.from(iv, 'hex'));
-  let decrypted = decipher.update(encryptedPassword, 'hex', 'utf8');
-  decrypted += decipher.final('utf8');
-  return decrypted;
+  const decrypted = Buffer.concat([
+    decipher.update(Buffer.from(encryptedPassword, 'hex')),
+    decipher.final(),
+  ]);
+
+  return decrypted.toString();
 };
 
 
@@ -148,7 +168,6 @@ app.get("/api/user/:username", (req, res) => {
 
 
 
-
 const bcrypt = require('bcrypt');
 
 
@@ -161,20 +180,20 @@ app.post('/create-admin', upload.single('Image'), async (req, res) => {
   try {
     console.log('Received data:', { Name, Email, UserName, Password, imagePath }); // Debugging log
 
-    // Hash the password before saving it to the database
-    const hashedPassword = await bcrypt.hash(Password, 10); // 10 salt rounds
+    // Encrypt the password using your `encryptPassword` method
+    const { encryptedPassword, iv } = encryptPassword(Password);
 
     // Get current timestamp for register_time and last_login
     const currentTime = moment().format('YYYY-MM-DD HH:mm:ss'); // Timestamp in MySQL format
 
-    // Insert query to save data into the users table, including register_time and last_login
+    // Insert query to save data into the users table, including register_time, last_login, and iv
     const insertQuery = `
-      INSERT INTO users (Name, Email, UserName, Password, Image, Type, Store, register_time, last_login)
-      VALUES (?, ?, ?, ?, ?, 'admin', 'all', ?, ?)
+      INSERT INTO users (Name, Email, UserName, Password, iv, Image, Type, Store, register_time, last_login)
+      VALUES (?, ?, ?, ?, ?, ?, 'admin', 'all', ?, ?)
     `;
 
-    // Execute the query with the current time for both fields
-    db.query(insertQuery, [Name, Email, UserName, hashedPassword, imagePath, currentTime, currentTime], (err, result) => {
+    // Execute the query with the provided data
+    db.query(insertQuery, [Name, Email, UserName, encryptedPassword, iv, imagePath, currentTime, currentTime], (err, result) => {
       if (err) {
         console.error('Database error:', err); // Log the exact error
         return res.status(500).json({ error: JSON.stringify(err) }); // Return the exact error object as a string
@@ -182,7 +201,7 @@ app.post('/create-admin', upload.single('Image'), async (req, res) => {
       res.status(200).json({ message: 'Admin account created successfully', id: result.insertId });
     });
   } catch (err) {
-    console.error('Error during hashing or database query:', err); // Log detailed error
+    console.error('Error during encryption or database query:', err); // Log detailed error
     res.status(500).json({ error: err.message || 'Server error' }); // Return a detailed error message
   }
 });
@@ -217,6 +236,8 @@ app.post('/create-user', upload.single('Image'), async (req, res) => {
     res.status(500).json({ error: err.message || 'Server error' });
   }
 });
+
+
 
 // Fetch all users
 app.get("/api/users/get_users", (req, res) => {
@@ -253,15 +274,13 @@ app.get('/check-users', (req, res) => {
 
 
 
-
 // POST route for login
 app.post('/login', (req, res) => {
   const { UserName, Password } = req.body;
 
-  // Query to get the user by username
   const loginQuery = `SELECT * FROM users WHERE UserName = ?`;
 
-  db.query(loginQuery, [UserName], async (err, result) => {
+  db.query(loginQuery, [UserName], (err, result) => {
     if (err) {
       console.error('Database error:', err);
       return res.status(500).json({ success: false, message: 'Database error' });
@@ -270,40 +289,42 @@ app.post('/login', (req, res) => {
     if (result.length > 0) {
       const user = result[0];
 
-      // Compare the entered password with the hashed password from the database
-      const passwordMatch = await bcrypt.compare(Password, user.Password);
+      try {
+        // Decrypt the stored password
+        const decryptedPassword = decryptPassword(user.Password, user.iv);
 
-      if (passwordMatch) {
-        // Update last_login to the current timestamp
-        const updateLastLoginQuery = `UPDATE users SET last_login = ? WHERE id = ?`;
-        const currentTime = moment().format('YYYY-MM-DD HH:mm:ss');
+        // Compare the decrypted password with the input password
+        if (decryptedPassword === Password) {
+          const currentTime = moment().format('YYYY-MM-DD HH:mm:ss');
+          const updateLastLoginQuery = `UPDATE users SET last_login = ? WHERE id = ?`;
 
-        db.query(updateLastLoginQuery, [currentTime, user.id], (err, updateResult) => {
-          if (err) {
-            console.error('Error updating last login:', err);
-            return res.status(500).json({ success: false, message: 'Failed to update last login' });
-          }
-
-          // After updating, send user details in the response
-          return res.status(200).json({
-            success: true,
-            message: 'Login successful',
-            user: {
-              UserName: user.UserName,
-              Image: user.Image,   // Assuming there's an Image field in your DB
-              Store: user.Store,   // Assuming there's a Store field in your DB
-              Type: user.Type,     // Assuming there's a Type field in your DB
-              Email: user.Email,   // Added the Email field
-              LastLogin: currentTime // Return the updated last_login time
+          db.query(updateLastLoginQuery, [currentTime, user.id], (err) => {
+            if (err) {
+              console.error('Error updating last login:', err);
+              return res.status(500).json({ success: false, message: 'Failed to update last login' });
             }
+
+            return res.status(200).json({
+              success: true,
+              message: 'Login successful',
+              user: {
+                UserName: user.UserName,
+                Image: user.Image,
+                Store: user.Store,
+                Type: user.Type,
+                Email: user.Email,
+                LastLogin: currentTime,
+              },
+            });
           });
-        });
-      } else {
-        // If passwords don't match
-        return res.status(401).json({ success: false, message: 'Invalid username or password' });
+        } else {
+          return res.status(401).json({ success: false, message: 'Invalid username or password' });
+        }
+      } catch (error) {
+        console.error('Decryption error:', error);
+        return res.status(500).json({ success: false, message: 'Password decryption failed' });
       }
     } else {
-      // If username is not found
       return res.status(401).json({ success: false, message: 'Invalid username or password' });
     }
   });
@@ -427,6 +448,45 @@ app.get('/api/users/get_password/:UserName', (req, res) => {
     }
   });
 });
+
+
+//update user name
+app.put('/api/users/update_user/:UserName', async (req, res) => {
+  const { UserName } = req.params;
+  const { Email, Password } = req.body;
+
+  try {
+    // Encrypt the password if provided
+    const updatedFields = {};
+    if (Password) {
+      const { encryptedPassword, iv } = encryptPassword(Password);
+      updatedFields.Password = encryptedPassword;
+      updatedFields.iv = iv;
+    }
+    if (Email) {
+      updatedFields.Email = Email;
+    }
+
+    // Update user in the database
+    const updateQuery = `UPDATE users SET ? WHERE UserName = ?`;
+    db.query(updateQuery, [updatedFields, UserName], (err, result) => {
+      if (err) {
+        console.error("Database error:", err);
+        return res.status(500).json({ success: false, message: "Database error." });
+      }
+
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ success: false, message: "User not found." });
+      }
+
+      res.status(200).json({ success: true, message: "User updated successfully." });
+    });
+  } catch (error) {
+    console.error("Error updating user:", error);
+    res.status(500).json({ success: false, message: "Server error." });
+  }
+});
+
 
 
 
