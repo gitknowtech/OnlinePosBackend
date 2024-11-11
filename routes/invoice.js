@@ -30,7 +30,6 @@ const createSalesTable = () => {
   });
 };
 
-// Create `invoices` table if it doesn't exist
 const createInvoicesTable = () => {
   const createTableQuery = `
     CREATE TABLE IF NOT EXISTS invoices (
@@ -43,6 +42,21 @@ const createInvoicesTable = () => {
       rate DECIMAL(10,2),
       quantity DECIMAL(10,2),
       totalAmount DECIMAL(10,2),
+      barcode VARCHAR(255),
+      totalCost DECIMAL(10,2) AS (cost * quantity) STORED, -- Auto-calculated column for total cost
+      profit DECIMAL(10,2) AS ((rate * quantity) - (cost * quantity)) STORED, -- Auto-calculated column for profit
+      profitPercentage DECIMAL(10,2) AS (
+        CASE 
+          WHEN (cost * quantity) > 0 THEN ((profit / (cost * quantity)) * 100) 
+          ELSE 0 
+        END
+      ) STORED, -- Auto-calculated column for profit percentage
+      discPercentage DECIMAL(10,2) AS (
+        CASE 
+          WHEN mrp > 0 THEN ((mrp - rate) / mrp) * 100
+          ELSE 0
+        END
+      ) STORED, -- Auto-calculated column for discount percentage
       createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (invoiceId) REFERENCES sales(invoiceId) ON DELETE CASCADE
     )
@@ -55,6 +69,8 @@ const createInvoicesTable = () => {
     }
   });
 };
+
+
 
 // Call the functions to create tables on server start
 createSalesTable();
