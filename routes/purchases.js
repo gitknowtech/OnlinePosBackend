@@ -24,7 +24,8 @@ function createSupplierPurchaseTables() {
       credit_amount DECIMAL(10, 2) NOT NULL,
       invoice_date DATE NOT NULL,
       document_link VARCHAR(255) NOT NULL,
-      refference VARCHAR(255),
+      store VARCHAR(255) NOT NULL,
+      refference VARCHAR(255) NOT NULL,
       PRIMARY KEY (id)
     );
   `;
@@ -219,6 +220,7 @@ router.post("/upload_document", upload.array("documents", 10), async (req, res) 
  */
 router.post("/save_Purchase_Supplier", async (req, res) => {
   const { purchases, summary } = req.body;
+  
 
   if (!Array.isArray(purchases) || purchases.length === 0 || !summary) {
     return res.status(400).send("Invalid purchase data or summary.");
@@ -239,8 +241,8 @@ router.post("/save_Purchase_Supplier", async (req, res) => {
     // Insert into supplier_purchase_last (summary table)
     const insertSummaryQuery = `
       INSERT INTO supplier_purchase_last 
-      (generatedid, gross_total, total_quantity, total_items, cash_amount, credit_amount, invoice_date, document_link)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      (generatedid, gross_total, total_quantity, total_items, cash_amount, credit_amount, invoice_date, document_link, store)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?,?)
     `;
     const {
       grossTotal,
@@ -250,6 +252,7 @@ router.post("/save_Purchase_Supplier", async (req, res) => {
       creditAmount,
       invoiceDate,
       documentLink,
+      store,
     } = summary;
 
     await new Promise((resolve, reject) => {
@@ -264,6 +267,7 @@ router.post("/save_Purchase_Supplier", async (req, res) => {
           creditAmount,
           invoiceDate,
           documentLink,
+          store,
         ],
         (err, result) => {
           if (err) reject(err);
@@ -544,12 +548,17 @@ router.get("/get_payment_history/:generatedid", async (req, res) => {
   }
 });
 
-
 router.delete("/delete_payment/:id", async (req, res) => {
   const { id } = req.params; // Extract ID from params
   const { payment } = req.body; // Extract payment from body
 
   try {
+    // Ensure `payment` is valid
+    const paymentValue = parseFloat(payment);
+    if (isNaN(paymentValue) || paymentValue < 0) {
+      return res.status(400).send({ error: "Invalid payment value." });
+    }
+
     // Fetch the related `generatedid` before deleting the record
     const generatedIdQuery = `
       SELECT generatedid FROM supplier_purchase_payment WHERE id = ?
@@ -587,7 +596,7 @@ router.delete("/delete_payment/:id", async (req, res) => {
       WHERE generatedid = ?
     `;
     await new Promise((resolve, reject) => {
-      db.query(updateQuery, [payment, payment, generatedId], (err, result) => {
+      db.query(updateQuery, [paymentValue, paymentValue, generatedId], (err, result) => {
         if (err) return reject(err);
         resolve(result);
       });
@@ -599,6 +608,7 @@ router.delete("/delete_payment/:id", async (req, res) => {
     res.status(500).send({ error: "Failed to delete payment record and update totals." });
   }
 });
+
 
 
 

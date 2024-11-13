@@ -62,6 +62,8 @@ const generateKey = () => {
     .substr(0, 32); // Ensure exactly 32 bytes
 };
 
+
+
 // Encrypt the password
 const encryptPassword = (password) => {
   const algorithm = 'aes-256-ctr';
@@ -76,6 +78,8 @@ const encryptPassword = (password) => {
     encryptedPassword: encrypted.toString('hex'),
   };
 };
+
+
 
 // Decrypt the password
 const decryptPassword = (encryptedPassword, iv) => {

@@ -69,7 +69,7 @@ router.get('/fetch_products_barcode', (req, res) => {
   
 
 router.post('/update_stock', (req, res) => {
-    const { productId, productName, barcode, quantity } = req.body;
+    const { productId, productName, barcode, quantity, store } = req.body;
   
     if (!productId || isNaN(quantity) || parseFloat(quantity) <= 0) {
         return res.status(400).json({ message: 'Invalid product ID or quantity' });
@@ -80,10 +80,10 @@ router.post('/update_stock', (req, res) => {
     // Step 1: Insert a record into `product_stockin`
     const insertStockInQuery = `
         INSERT INTO product_stockin (productId, productName, barcode, quantity, type, store,  date)
-        VALUES (?, ?, ?, ?, 'StockIn', NULL , NOW())
+        VALUES (?, ?, ?, ?, 'StockIn', ? , NOW())
     `;
   
-    db.query(insertStockInQuery, [productId, productName, barcode, parsedQuantity], (err, result) => {
+    db.query(insertStockInQuery, [productId, productName, barcode, parsedQuantity, store], (err, result) => {
         if (err) {
             console.error('Error inserting into product_stockin:', err);
             return res.status(500).json({ message: 'Error logging stock addition' });
@@ -245,7 +245,7 @@ createProductStockOutTable();
 
 // API to update stock out
 router.post('/update_stock_out', (req, res) => {
-  const { productId, productName, barcode, quantity } = req.body;
+  const { productId, productName, barcode, quantity, store } = req.body;
 
   if (!productId || isNaN(quantity) || parseFloat(quantity) <= 0) {
       return res.status(400).json({ message: 'Invalid product ID or quantity' });
@@ -256,10 +256,10 @@ router.post('/update_stock_out', (req, res) => {
   // Step 1: Insert a record into `product_stockout`
   const insertStockOutQuery = `
       INSERT INTO product_stockout (productId, productName, barcode, quantity, type, store, date)
-      VALUES (?, ?, ?, ?, 'StockOut', NULL , NOW())
+      VALUES (?, ?, ?, ?, 'StockOut', ? , NOW())
   `;
 
-  db.query(insertStockOutQuery, [productId, productName, barcode, parsedQuantity], (err, result) => {
+  db.query(insertStockOutQuery, [productId, productName, barcode, parsedQuantity, store], (err, result) => {
       if (err) {
           console.error('Error inserting into product_stockout:', err);
           return res.status(500).json({ message: 'Error logging stock deduction' });
