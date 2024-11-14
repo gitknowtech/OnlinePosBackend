@@ -129,5 +129,17 @@ router.get("/get_stores", (req, res) => {
 
 
 
+router.get("/get_stores_new", (req, res) => {
+  const query = "SELECT id, storeName FROM stores";
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error("Error fetching stores:", err);
+      return res.status(500).json({ message: "Error fetching stores" });
+    }
+    return res.status(200).json(results);
+  });
+});
+
+
 
 module.exports = router;

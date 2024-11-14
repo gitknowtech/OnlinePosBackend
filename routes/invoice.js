@@ -18,6 +18,8 @@ const createSalesTable = () => {
       CardPay DECIMAL(10,2),
       PaymentType VARCHAR(50) NOT NULL,
       Balance DECIMAL(10,2),
+      UserName VARCHAR(255) NOT NULL, -- Add UserName
+      Store VARCHAR(255) NOT NULL,   -- Add Store
       createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
   `;
@@ -57,6 +59,8 @@ const createInvoicesTable = () => {
           ELSE 0
         END
       ) STORED, -- Auto-calculated column for discount percentage
+      UserName VARCHAR(255) NOT NULL, -- Include UserName
+      Store VARCHAR(255) NOT NULL,    -- Include Store
       createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (invoiceId) REFERENCES sales(invoiceId) ON DELETE CASCADE
     )
@@ -111,6 +115,8 @@ router.post("/add_sales", async (req, res) => {
     PaymentType,
     Balance,
     invoiceItems, // Array of invoice items
+    user, // Add user
+    store, // Add store
   } = req.body;
 
   if (
@@ -118,6 +124,8 @@ router.post("/add_sales", async (req, res) => {
     !netAmount ||
     !PaymentType ||
     !Array.isArray(invoiceItems) ||
+    !user || // Ensure user is provided
+    !store || // Ensure store is provided
     invoiceItems.length === 0
   ) {
     return res
@@ -142,6 +150,8 @@ router.post("/add_sales", async (req, res) => {
       CardPay || 0,
       PaymentType,
       Balance || 0,
+      user, // Include user
+      store, // Include store
     ];
 
     // Prepare invoice items values
@@ -155,6 +165,8 @@ router.post("/add_sales", async (req, res) => {
       item.quantity,
       item.amount,
       item.barcode, // Include barcode here
+      user, // Include UserName
+      store, // Include Store
     ]);
     console.log("Invoice Items Values:", invoiceItemsValues);
 
@@ -174,9 +186,9 @@ router.post("/add_sales", async (req, res) => {
       const insertSalesQuery = `
         INSERT INTO sales (
           invoiceId, GrossTotal, CustomerId, discountPercent, discountAmount,
-          netAmount, CashPay, CardPay, PaymentType, Balance
+          netAmount, CashPay, CardPay, PaymentType, Balance, UserName, Store
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?, ?)
       `;
 
       db.query(insertSalesQuery, salesValues, (err) => {
@@ -194,7 +206,7 @@ router.post("/add_sales", async (req, res) => {
         // Insert into invoices
         const insertItemsQuery = `
           INSERT INTO invoices (
-            invoiceId, name, cost, mrp, discount, rate, quantity, totalAmount, barcode
+            invoiceId, name, cost, mrp, discount, rate, quantity, totalAmount, barcode, UserName, Store
           ) VALUES ?
         `;
         db.query(insertItemsQuery, [invoiceItemsValues], async (err) => {
@@ -297,6 +309,8 @@ router.get("/fetch_sales", (req, res) => {
     res.status(200).json(results);
   });
 });
+
+
 
 // Route to fetch all invoice items for a specific invoice
 router.get("/fetch_invoice_items/:invoiceId", (req, res) => {

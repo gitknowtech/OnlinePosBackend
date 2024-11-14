@@ -212,32 +212,34 @@ app.post('/create-admin', upload.single('Image'), async (req, res) => {
 
 
 
-
-
 // POST route to handle form data and file upload for inserting user data
 app.post('/create-user', upload.single('Image'), async (req, res) => {
-  const { Name, Email, UserName, Password } = req.body;
+  const { Name, Email, UserName, Password, Store, Type } = req.body; // Added 'Store' and 'Type'
   const imagePath = req.file ? req.file.path : null;
 
   try {
-    const { encryptedPassword, iv } = encryptPassword(Password);
+    const { encryptedPassword, iv } = encryptPassword(Password); // Assume encryptPassword is defined
     const currentTime = moment().format('YYYY-MM-DD HH:mm:ss');
 
     const insertQuery = `
       INSERT INTO users (Name, Email, UserName, Password, iv, Image, Type, Store, register_time, last_login)
-      VALUES (?, ?, ?, ?, ?, ?, 'user', 'all', ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
-    db.query(insertQuery, [Name, Email, UserName, encryptedPassword, iv, imagePath, currentTime, currentTime], (err, result) => {
-      if (err) {
-        console.error('Database error:', err);
-        return res.status(500).json({ error: JSON.stringify(err) });
+    db.query(
+      insertQuery,
+      [Name, Email, UserName, encryptedPassword, iv, imagePath, Type, Store, currentTime, currentTime],
+      (err, result) => {
+        if (err) {
+          console.error('Database error:', err);
+          return res.status(500).json({ error: 'Failed to save user to the database.' });
+        }
+        res.status(200).json({ message: 'User account created successfully', id: result.insertId });
       }
-      res.status(200).json({ message: 'User account created successfully', id: result.insertId });
-    });
+    );
   } catch (err) {
-    console.error('Error during encryption or database query:', err);
-    res.status(500).json({ error: err.message || 'Server error' });
+    console.error('Error during user creation:', err);
+    res.status(500).json({ error: 'Server error. Please try again later.' });
   }
 });
 
@@ -377,7 +379,7 @@ app.get('/check-duplicate', (req, res) => {
 
 
 // Delete user
-app.delete("/api/users/delete_user/:UserName", (req, res) => {
+app.delete("/delete_user/:UserName", (req, res) => {
   const { UserName } = req.params;
 
   const query = "DELETE FROM users WHERE UserName = ?";
