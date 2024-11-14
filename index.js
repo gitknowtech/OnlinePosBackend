@@ -212,9 +212,10 @@ app.post('/create-admin', upload.single('Image'), async (req, res) => {
 
 
 
-// POST route to handle form data and file upload for inserting user data
+
+//create user file
 app.post('/create-user', upload.single('Image'), async (req, res) => {
-  const { Name, Email, UserName, Password, Store, Type } = req.body; // Added 'Store' and 'Type'
+  const { Name, Email, UserName, Password, Store, Type } = req.body; // 'Store' contains the storeName
   const imagePath = req.file ? req.file.path : null;
 
   try {
@@ -242,6 +243,7 @@ app.post('/create-user', upload.single('Image'), async (req, res) => {
     res.status(500).json({ error: 'Server error. Please try again later.' });
   }
 });
+
 
 
 
