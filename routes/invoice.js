@@ -104,6 +104,9 @@ const generateInvoiceId = () => {
 
 
 
+
+
+// API to add a new sales record
 // API to add a new sales record
 router.post("/add_sales", async (req, res) => {
   const {
@@ -156,30 +159,72 @@ router.post("/add_sales", async (req, res) => {
       store, // Include store
     ];
 
+    // Validate and fetch missing details for invoice items
+    const validatedItems = await Promise.all(
+      invoiceItems.map(async (item) => {
+        const { barcode, quantity } = item;
+
+        if (!barcode) {
+          console.warn("Missing barcode for item:", item);
+        }
+
+        const fetchProductQuery = `
+          SELECT productId, productName, barcode, cost, mrp, stockQuantity
+          FROM products
+          WHERE barcode = ? OR productId = ?
+          LIMIT 1
+        `;
+
+        const productDetails = await new Promise((resolve, reject) => {
+          db.query(
+            fetchProductQuery,
+            [barcode || null, item.productId || null],
+            (err, results) => {
+              if (err || results.length === 0) {
+                console.error(
+                  `Error fetching product details for item: ${barcode || item.productId}`,
+                  err ? err.message : "No results found"
+                );
+                return reject(
+                  new Error(
+                    `Product details not found for barcode: ${barcode || "undefined"}`
+                  )
+                );
+              }
+              resolve(results[0]);
+            }
+          );
+        });
+
+        return {
+          ...productDetails,
+          ...item,
+          quantity: parseFloat(quantity), // Ensure quantity is parsed
+        };
+      })
+    );
+
     // Prepare invoice items values
-    const invoiceItemsValues = invoiceItems.map((item) => [
+    const invoiceItemsValues = validatedItems.map((item) => [
       invoiceId,
-      item.name,
+      item.productName,
       item.cost,
       item.mrp,
-      item.discount,
-      item.rate,
+      item.discount || 0,
+      item.rate || 0,
       item.quantity,
-      item.amount,
-      item.barcode, // Include barcode here
+      item.amount || 0,
+      item.barcode, // Include barcode
       user, // Include UserName
       store, // Include Store
     ]);
-    console.log("Invoice Items Values:", invoiceItemsValues);
+
+    console.log("Validated Invoice Items:", validatedItems);
 
     // Start transaction
     db.beginTransaction((err) => {
       if (err) {
-        console.error(
-          "Error starting transaction:",
-          err.message,
-          err.stack
-        );
+        console.error("Error starting transaction:", err.message, err.stack);
         res.status(500).json({ message: "Failed to start transaction" });
         return;
       }
@@ -190,17 +235,13 @@ router.post("/add_sales", async (req, res) => {
           invoiceId, GrossTotal, CustomerId, discountPercent, discountAmount,
           netAmount, CashPay, CardPay, PaymentType, Balance, UserName, Store
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
 
       db.query(insertSalesQuery, salesValues, (err) => {
         if (err) {
           return db.rollback(() => {
-            console.error(
-              "Error adding sales record:",
-              err.message,
-              err.stack
-            );
+            console.error("Error adding sales record:", err.message, err.stack);
             res.status(500).json({ message: "Failed to add sales record" });
           });
         }
@@ -214,41 +255,76 @@ router.post("/add_sales", async (req, res) => {
         db.query(insertItemsQuery, [invoiceItemsValues], async (err) => {
           if (err) {
             return db.rollback(() => {
-              console.error(
-                "Error adding invoice items:",
-                err.message,
-                err.stack
-              );
-              res
-                .status(500)
-                .json({ message: "Failed to add invoice items" });
+              console.error("Error adding invoice items:", err.message, err.stack);
+              res.status(500).json({ message: "Failed to add invoice items" });
             });
           }
 
           try {
-            // Update stock quantities for each product
-            for (const item of invoiceItems) {
-              const quantity = parseFloat(item.quantity);
-              const barcode = item.barcode;
+            // Update stock quantities for each product and log stock out
+            for (const item of validatedItems) {
+              const { quantity, barcode, productId, productName } = item;
 
+              if (!barcode || quantity <= 0) {
+                console.warn(`Skipping stock update for item:`, item);
+                continue;
+              }
+
+              // Step 1: Update stock quantity
               const updateStockQuery = `
                 UPDATE products
                 SET stockQuantity = stockQuantity - ?
-                WHERE barcode = ?
+                WHERE barcode = ? AND stockQuantity >= ?
               `;
 
               await new Promise((resolve, reject) => {
-                db.query(updateStockQuery, [quantity, barcode], (err, results) => {
-                  if (err) {
-                    console.error(
-                      `Error updating stock for barcode ${barcode}:`,
-                      err.message,
-                      err.stack
-                    );
-                    return reject(err);
+                db.query(
+                  updateStockQuery,
+                  [quantity, barcode, quantity],
+                  (err, results) => {
+                    if (err) {
+                      console.error(
+                        `Error updating stock for barcode ${barcode}:`,
+                        err.message,
+                        err.stack
+                      );
+                      return reject(err);
+                    }
+
+                    if (results.affectedRows === 0) {
+                      return reject(
+                        new Error(
+                          `Not enough stock available for product with barcode ${barcode}`
+                        )
+                      );
+                    }
+                    resolve();
                   }
-                  resolve();
-                });
+                );
+              });
+
+              // Step 2: Log stock-out event in `product_stockout` table
+              const insertStockOutQuery = `
+                INSERT INTO product_stockout (productId, productName, barcode, quantity, type, store, date)
+                VALUES (?, ?, ?, ?, 'Selling Product', ?, NOW())
+              `;
+
+              await new Promise((resolve, reject) => {
+                db.query(
+                  insertStockOutQuery,
+                  [productId, productName, barcode, quantity, store],
+                  (err) => {
+                    if (err) {
+                      console.error(
+                        `Error logging stock-out for barcode ${barcode}:`,
+                        err.message,
+                        err.stack
+                      );
+                      return reject(err);
+                    }
+                    resolve();
+                  }
+                );
               });
             }
 
@@ -256,11 +332,7 @@ router.post("/add_sales", async (req, res) => {
             db.commit((err) => {
               if (err) {
                 return db.rollback(() => {
-                  console.error(
-                    "Transaction commit failed:",
-                    err.message,
-                    err.stack
-                  );
+                  console.error("Transaction commit failed:", err.message, err.stack);
                   res.status(500).json({ message: "Transaction failed" });
                 });
               }
@@ -272,25 +344,15 @@ router.post("/add_sales", async (req, res) => {
             });
           } catch (err) {
             db.rollback(() => {
-              console.error(
-                "Error updating stock quantities:",
-                err.message,
-                err.stack
-              );
-              res
-                .status(500)
-                .json({ message: "Failed to update stock quantities" });
+              console.error("Error updating stock quantities:", err.message, err.stack);
+              res.status(400).json({ message: err.message });
             });
           }
         });
       });
     });
   } catch (err) {
-    console.error(
-      "Error saving sales or invoice items:",
-      err.message,
-      err.stack
-    );
+    console.error("Error saving sales or invoice items:", err.message, err.stack);
     res.status(500).json({ message: "Internal server error", error: err.message });
   }
 });
