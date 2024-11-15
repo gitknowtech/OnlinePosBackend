@@ -101,7 +101,9 @@ const generateInvoiceId = () => {
   });
 };
 
-// API to add a new sales record
+
+
+
 // API to add a new sales record
 router.post("/add_sales", async (req, res) => {
   const {
@@ -358,6 +360,69 @@ router.get('/stock_quantity', (req, res) => {
     res.json({ stockQuantity });
   });
 });
+
+
+
+router.get("/fetch_invoices", (req, res) => {
+  const { Store } = req.query; // Get Store parameter from the query
+  console.log("Store received in API request:", Store); // Log the Store value
+
+  if (!Store) {
+    return res.status(400).json({ message: "Store is required." });
+  }
+
+  // SQL query to fetch invoices filtered by Store
+  const query = `
+    SELECT * FROM invoices
+    WHERE Store = ?
+  `;
+
+  // Execute the query
+  db.query(query, [Store], (err, results) => {
+    if (err) {
+      console.error("Error fetching invoices:", err.message, err.stack);
+      return res.status(500).json({
+        message: "Failed to fetch invoices",
+        error: err.message,
+      });
+    }
+    console.log("Fetched invoices:", results); // Log the results
+    res.status(200).json(results); // Return results as JSON
+  });
+});
+
+
+
+router.get("/fetch_sales", (req, res) => {
+  const { Store } = req.query; // Get Store parameter from the query
+  console.log("Store received in API request:", Store); // Log the Store value
+
+  if (!Store) {
+    return res.status(400).json({ message: "Store is required." });
+  }
+
+  // SQL query to fetch sales filtered by Store
+  const query = `
+    SELECT id, invoiceId, GrossTotal, CustomerId, discountPercent, discountAmount,
+           netAmount, CashPay, CardPay, PaymentType, Balance, createdAt
+    FROM sales
+    WHERE Store = ?
+  `;
+
+  // Execute the query
+  db.query(query, [Store], (err, results) => {
+    if (err) {
+      console.error("Error fetching sales:", err.message, err.stack);
+      return res.status(500).json({
+        message: "Failed to fetch sales",
+        error: err.message,
+      });
+    }
+    console.log("Fetched sales:", results); // Log the results
+    res.status(200).json(results); // Return results as JSON
+  });
+});
+
 
 
 
