@@ -600,7 +600,7 @@ router.get('/fetch_products_by_category', (req, res) => {
 
 
 // Endpoint to search products by name, barcode, or product ID
-router.get('/search', (req, res) => {
+/*router.get('/search', (req, res) => {
   const { query } = req.query;
 
   if (!query) {
@@ -624,7 +624,40 @@ router.get('/search', (req, res) => {
     }
     res.status(200).json(results); // Return matching products
   });
+});*/
+
+// Endpoint to search products by name, barcode, or product ID, filtered by store
+router.get('/search', (req, res) => {
+  const { query, store } = req.query;
+
+  if (!query) {
+    return res.status(400).json({ message: "Search query is required." });
+  }
+
+  if (!store) {
+    return res.status(400).json({ message: "Store identifier is required." });
+  }
+
+  // SQL query to search by product name, barcode, or product ID filtered by store
+  const sqlQuery = `
+    SELECT productId, productName, barcode, mrpPrice, costPrice, discountPrice, wholesalePrice, lockedPrice
+    FROM products
+    WHERE (productName LIKE ? OR barcode LIKE ? OR productId LIKE ?)
+      AND store = ?
+    LIMIT 10
+  `;
+
+  const searchTerm = `%${query}%`; // Using % wildcard for partial match
+
+  db.query(sqlQuery, [searchTerm, searchTerm, searchTerm, store], (err, results) => {
+    if (err) {
+      console.error("Error fetching product suggestions:", err);
+      return res.status(500).json({ message: "Failed to fetch product suggestions." });
+    }
+    res.status(200).json(results); // Return matching products
+  });
 });
+
 
 
 
