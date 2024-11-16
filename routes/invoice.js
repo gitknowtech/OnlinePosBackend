@@ -105,6 +105,8 @@ const generateInvoiceId = () => {
 
 
 
+
+// API to add a new sales record
 // API to add a new sales record
 router.post("/add_sales", async (req, res) => {
   const {
@@ -167,11 +169,11 @@ router.post("/add_sales", async (req, res) => {
         }
 
         const fetchProductQuery = `
-      SELECT productId, productName, barcode, costPrice, mrpPrice, stockQuantity
-      FROM products
-      WHERE barcode = ? OR productId = ?
-      LIMIT 1
-    `;
+          SELECT productId, productName, barcode, cost, mrp, stockQuantity
+          FROM products
+          WHERE barcode = ? OR productId = ?
+          LIMIT 1
+        `;
 
         const productDetails = await new Promise((resolve, reject) => {
           db.query(
@@ -358,6 +360,22 @@ router.post("/add_sales", async (req, res) => {
 
 
 
+// Route to fetch all sales records
+router.get("/fetch_sales", (req, res) => {
+  const fetchQuery = "SELECT * FROM sales";
+  db.query(fetchQuery, (err, results) => {
+    if (err) {
+      console.error("Error fetching sales records:", err.message, err.stack);
+      return res
+        .status(500)
+        .json({ message: "Error fetching sales records", error: err.message });
+    }
+    res.status(200).json(results);
+  });
+});
+
+
+
 // Route to fetch all invoice items for a specific invoice
 router.get("/fetch_invoice_items/:invoiceId", (req, res) => {
   const { invoiceId } = req.params;
@@ -419,7 +437,6 @@ router.get("/fetch_invoices", (req, res) => {
   const query = `
     SELECT * FROM invoices
     WHERE Store = ?
-     ORDER BY createdAt DESC
   `;
 
   // Execute the query
@@ -452,7 +469,6 @@ router.get("/fetch_sales", (req, res) => {
            netAmount, CashPay, CardPay, PaymentType, Balance, createdAt
     FROM sales
     WHERE Store = ?
-    ORDER BY createdAt DESC
   `;
 
   // Execute the query
@@ -470,38 +486,6 @@ router.get("/fetch_sales", (req, res) => {
 });
 
 
-router.get("/check_stock", async (req, res) => {
-  const { productId } = req.query;
 
-  if (!productId) {
-    return res.status(400).json({ message: "Product ID is required." });
-  }
-
-  const query = `
-    SELECT stockQuantity
-    FROM products
-    WHERE productId = ?
-  `;
-
-  try {
-    // Fetch stock quantity from the database
-    db.query(query, [productId], (err, results) => {
-      if (err) {
-        console.error("Error fetching stock:", err.message);
-        return res.status(500).json({ message: "Failed to fetch stock." });
-      }
-
-      if (results.length === 0) {
-        return res.status(404).json({ message: "Product not found." });
-      }
-
-      const { stockQuantity } = results[0];
-      res.status(200).json({ stockQuantity });
-    });
-  } catch (error) {
-    console.error("Unexpected error:", error);
-    res.status(500).json({ message: "Internal server error." });
-  }
-});
 
 module.exports = router;
