@@ -16,30 +16,33 @@
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 --
--- Table structure for table `units`
+-- Table structure for table `product_stockout`
 --
 
-DROP TABLE IF EXISTS `units`;
+DROP TABLE IF EXISTS `product_stockout`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `units` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `unitName` varchar(255) NOT NULL,
-  `user` varchar(255) NOT NULL,
-  `store` varchar(255) NOT NULL,
-  `saveTime` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+CREATE TABLE `product_stockout` (
+  `stockOutId` int NOT NULL AUTO_INCREMENT,
+  `productId` int NOT NULL,
+  `productName` varchar(1000) NOT NULL,
+  `barcode` varchar(1000) NOT NULL,
+  `quantity` decimal(10,4) DEFAULT NULL,
+  `type` varchar(255) DEFAULT NULL,
+  `store` varchar(255) DEFAULT NULL,
+  `date` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`stockOutId`)
+) ENGINE=InnoDB AUTO_INCREMENT=24 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Dumping data for table `units`
+-- Dumping data for table `product_stockout`
 --
 
-LOCK TABLES `units` WRITE;
-/*!40000 ALTER TABLE `units` DISABLE KEYS */;
-INSERT INTO `units` VALUES (6,'Y','abdul','all','2024-10-05 20:34:38'),(7,'L','abdul','Wariyapola','2024-10-05 20:34:47'),(8,'ML','abdul','all','2024-10-05 20:36:34'),(9,'PCS','abdul','Wariyapola','2024-10-05 20:36:45'),(10,'QTY','abdul','Wariyapola','2024-10-05 20:36:55');
-/*!40000 ALTER TABLE `units` ENABLE KEYS */;
+LOCK TABLES `product_stockout` WRITE;
+/*!40000 ALTER TABLE `product_stockout` DISABLE KEYS */;
+INSERT INTO `product_stockout` VALUES (20,12,'Slim Fit Jeans','34856',2.0000,'Selling Product','kurunegala','2024-11-17 06:36:04'),(21,12,'Slim Fit Jeans','34856',6.0000,'Selling Product','kurunegala','2024-11-17 06:56:12'),(22,12,'Slim Fit Jeans','34856',1.0000,'Selling Product','kurunegala','2024-11-17 07:01:18'),(23,12,'Slim Fit Jeans','34856',5.0000,'Selling Product','kurunegala','2024-11-17 07:11:24');
+/*!40000 ALTER TABLE `product_stockout` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
@@ -51,4 +54,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2024-10-06  7:52:51
+-- Dump completed on 2024-11-17 18:06:20

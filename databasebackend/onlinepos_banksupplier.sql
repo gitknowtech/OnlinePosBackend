@@ -24,13 +24,13 @@ DROP TABLE IF EXISTS `banksupplier`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `banksupplier` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `supId` varchar(255) NOT NULL,
-  `supName` varchar(255) NOT NULL,
-  `supBank` varchar(255) NOT NULL,
-  `supBankNo` varchar(255) NOT NULL,
-  `saveTime` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `supId` varchar(255) DEFAULT NULL,
+  `supName` varchar(255) DEFAULT NULL,
+  `supBank` varchar(255) DEFAULT NULL,
+  `supBankNo` varchar(255) DEFAULT NULL,
+  `saveTime` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -39,7 +39,7 @@ CREATE TABLE `banksupplier` (
 
 LOCK TABLES `banksupplier` WRITE;
 /*!40000 ALTER TABLE `banksupplier` DISABLE KEYS */;
-INSERT INTO `banksupplier` VALUES (2,'001 ','Asanka','Amana Bank','124563','2024-10-20 12:35:38'),(3,'002','amith','Nation Trust Bank','456789','2024-10-20 12:35:53');
+INSERT INTO `banksupplier` VALUES (5,'002','Amith','Amana Bank','12345984','2024-11-05 15:24:33'),(6,'003','Ravi','Amana Bank','12345984','2024-11-05 15:30:22'),(7,'003','Ravi','Nation Trust Bank','1919851','2024-11-05 15:33:21'),(8,'003','Ravi','Amana Bank','8519519','2024-11-05 15:33:30');
 /*!40000 ALTER TABLE `banksupplier` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -52,4 +52,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2024-10-20 17:33:23
+-- Dump completed on 2024-11-17 18:06:19

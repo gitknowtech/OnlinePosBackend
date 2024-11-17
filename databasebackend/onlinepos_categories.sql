@@ -38,7 +38,7 @@ CREATE TABLE `categories` (
 
 LOCK TABLES `categories` WRITE;
 /*!40000 ALTER TABLE `categories` DISABLE KEYS */;
-INSERT INTO `categories` VALUES (1,'Cleaning Supplies','abdul','all','2024-10-05 21:41:14'),(2,'Paint Removal Products','abdul','Wariyapola','2024-10-05 21:41:18'),(3,'Specialty Paints','abdul','Wariyapola','2024-10-05 21:41:22'),(4,'Drop cloths','abdul','all','2024-10-05 21:41:26'),(5,'Tapes','abdul','Wariyapola','2024-10-05 21:41:30'),(6,'Trays','abdul','all','2024-10-05 21:41:35'),(7,'Rollers','abdul','Wariyapola','2024-10-05 21:41:39'),(8,'Brushes','abdul','all','2024-10-05 21:41:44'),(9,'Sandpaper','abdul','Wariyapola','2024-10-05 21:41:50'),(10,'Putty','abdul','all','2024-10-05 21:42:00');
+INSERT INTO `categories` VALUES (1,'Men\'s Clothing','abdul','all','2024-10-05 21:41:14'),(2,'Women\'s Clothing','abdul','Wariyapola','2024-10-05 21:41:18'),(3,'Footwear','abdul','Wariyapola','2024-10-05 21:41:22'),(4,'Accessories','abdul','all','2024-10-05 21:41:26'),(5,'Tapes','abdul','Wariyapola','2024-10-05 21:41:30'),(6,'Trays','abdul','all','2024-10-05 21:41:35'),(7,'Rollers','abdul','Wariyapola','2024-10-05 21:41:39'),(8,'Brushes','abdul','all','2024-10-05 21:41:44'),(9,'Sandpaper','abdul','Wariyapola','2024-10-05 21:41:50'),(10,'Putty','abdul','all','2024-10-05 21:42:00');
 /*!40000 ALTER TABLE `categories` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -51,4 +51,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2024-10-20 17:33:22
+-- Dump completed on 2024-11-17 18:06:18

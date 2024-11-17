@@ -16,21 +16,21 @@
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 --
--- Table structure for table `products`
+-- Table structure for table `deleted_products`
 --
 
-DROP TABLE IF EXISTS `products`;
+DROP TABLE IF EXISTS `deleted_products`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `products` (
+CREATE TABLE `deleted_products` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `productId` varchar(255) NOT NULL,
-  `productName` varchar(255) NOT NULL,
+  `productId` varchar(1000) NOT NULL,
+  `productName` varchar(1000) NOT NULL,
   `productNameSinhala` varchar(255) DEFAULT NULL,
   `barcode` varchar(255) DEFAULT NULL,
   `batchNumber` varchar(255) DEFAULT NULL,
-  `selectedSupplier` varchar(255) DEFAULT NULL,
-  `selectedCategory` varchar(255) DEFAULT NULL,
+  `selectedSupplier` varchar(1000) DEFAULT NULL,
+  `selectedCategory` varchar(1000) DEFAULT NULL,
   `selectedUnit` varchar(255) DEFAULT NULL,
   `manufacturingDate` date DEFAULT NULL,
   `expiringDate` date DEFAULT NULL,
@@ -43,22 +43,26 @@ CREATE TABLE `products` (
   `wholesalePrice` decimal(10,2) DEFAULT NULL,
   `wholesalePercentage` decimal(5,2) DEFAULT NULL,
   `lockedPrice` decimal(10,2) DEFAULT NULL,
-  `availableStock` int DEFAULT NULL,
-  `stockAlert` int DEFAULT NULL,
-  `store` varchar(255) DEFAULT NULL,
-  `user` varchar(255) DEFAULT NULL,
-  `saveTime` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `stockQuantity` decimal(10,4) DEFAULT NULL,
+  `stockAlert` decimal(10,4) DEFAULT NULL,
+  `store` varchar(500) DEFAULT NULL,
+  `user` varchar(500) DEFAULT NULL,
+  `status` varchar(10) DEFAULT NULL,
+  `deleteTime` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `imageLink` varchar(2000) DEFAULT NULL,
+  `openingBalance` decimal(10,4) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Dumping data for table `products`
+-- Dumping data for table `deleted_products`
 --
 
-LOCK TABLES `products` WRITE;
-/*!40000 ALTER TABLE `products` DISABLE KEYS */;
-/*!40000 ALTER TABLE `products` ENABLE KEYS */;
+LOCK TABLES `deleted_products` WRITE;
+/*!40000 ALTER TABLE `deleted_products` DISABLE KEYS */;
+INSERT INTO `deleted_products` VALUES (3,'198','Espadrille Wedges','Wedgeira','87612','239944','Rajith','Footwear','L','2024-09-10','2025-05-10',130.00,400.00,67.50,270.00,65.00,16.25,230.00,48.00,370.00,50.0000,12.0000,'all','abdul','active','2024-10-24 14:44:09','https://example.com/espadrillewedges.jpg',20.0000);
+/*!40000 ALTER TABLE `deleted_products` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
@@ -70,4 +74,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2024-10-06  7:52:51
+-- Dump completed on 2024-11-17 18:06:19

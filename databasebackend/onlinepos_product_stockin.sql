@@ -16,30 +16,33 @@
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 --
--- Table structure for table `delete_bank_supplier`
+-- Table structure for table `product_stockin`
 --
 
-DROP TABLE IF EXISTS `delete_bank_supplier`;
+DROP TABLE IF EXISTS `product_stockin`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `delete_bank_supplier` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `supId` varchar(255) NOT NULL,
-  `supName` varchar(255) NOT NULL,
-  `supBank` varchar(255) NOT NULL,
-  `supBankNo` varchar(255) NOT NULL,
-  `deleteTime` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+CREATE TABLE `product_stockin` (
+  `stockInId` int NOT NULL AUTO_INCREMENT,
+  `productId` int NOT NULL,
+  `productname` varchar(1000) NOT NULL,
+  `barcode` varchar(1000) NOT NULL,
+  `quantity` decimal(10,4) DEFAULT NULL,
+  `type` varchar(255) DEFAULT NULL,
+  `store` varchar(255) DEFAULT NULL,
+  `date` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`stockInId`)
+) ENGINE=InnoDB AUTO_INCREMENT=38 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Dumping data for table `delete_bank_supplier`
+-- Dumping data for table `product_stockin`
 --
 
-LOCK TABLES `delete_bank_supplier` WRITE;
-/*!40000 ALTER TABLE `delete_bank_supplier` DISABLE KEYS */;
-/*!40000 ALTER TABLE `delete_bank_supplier` ENABLE KEYS */;
+LOCK TABLES `product_stockin` WRITE;
+/*!40000 ALTER TABLE `product_stockin` DISABLE KEYS */;
+INSERT INTO `product_stockin` VALUES (34,12,'Slim Fit Jeans','34856',2.0000,'StockIn','kurunegala','2024-11-17 06:36:24'),(35,12,'Slim Fit Jeans','34856',1.0000,'Return Item','kurunegala','2024-11-17 06:55:41'),(36,12,'Slim Fit Jeans','34856',2.0000,'Return Item','kurunegala','2024-11-17 07:01:18'),(37,12,'Slim Fit Jeans','34856',14.0000,'Return Item','kurunegala','2024-11-17 07:12:59');
+/*!40000 ALTER TABLE `product_stockin` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
@@ -51,4 +54,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2024-10-06  7:52:51
+-- Dump completed on 2024-11-17 18:06:20

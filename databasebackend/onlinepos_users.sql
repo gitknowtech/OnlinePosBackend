@@ -28,6 +28,7 @@ CREATE TABLE `users` (
   `Email` varchar(255) NOT NULL,
   `UserName` varchar(255) NOT NULL,
   `Password` varchar(255) NOT NULL,
+  `iv` varchar(255) NOT NULL,
   `Image` varchar(255) DEFAULT NULL,
   `Type` varchar(255) NOT NULL,
   `Store` varchar(255) NOT NULL,
@@ -36,7 +37,7 @@ CREATE TABLE `users` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `Email` (`Email`),
   UNIQUE KEY `UserName` (`UserName`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -45,7 +46,7 @@ CREATE TABLE `users` (
 
 LOCK TABLES `users` WRITE;
 /*!40000 ALTER TABLE `users` DISABLE KEYS */;
-INSERT INTO `users` VALUES (1,'Abdul Rahman','arabdul0983@gmail.com','abdul','$2b$10$LDD.ToLBSzzqiqjJJ3lUleJs5uzsnxEj6YHnE9gHsrkvXx.nlNV1m','uploads\\1729255100852.jpg','admin','all','2024-10-18 18:08:20','2024-10-20 15:22:06');
+INSERT INTO `users` VALUES (1,'Abdul Rahman','arabdul0983@gmail.com','abdul','865720741f88','f4fb811b1539ea808286982ebc5e05b8','uploads\\1731211204706.png','admin','kurunegala','2024-11-10 09:30:04','2024-11-17 14:10:46'),(3,'ayantha','aya@gmail.com','aya123','cd5e932b23c3','4e86109459fe1eaa2dc5d3a06c35088f','uploads\\1731585166418.png','user','Wariyapolanew','2024-11-14 17:22:46','2024-11-14 17:22:46'),(5,'sajeewa','sajee@gmail.com','sajee','3705bd1ad047','3d863e0ae68fd118d7ebc85b1aabac8f','uploads\\1731585873040.jpeg','user','Wariyapolanew','2024-11-14 17:34:33','2024-11-14 17:34:33'),(6,'aruna lakshan','aruna@gmail.com','aruna123','f892ff311580','7f2fa5533e5b57f57075dacaf1a3612f','uploads\\1731585904260.jpeg','user','Kurunegala','2024-11-14 17:35:04','2024-11-14 17:35:04');
 /*!40000 ALTER TABLE `users` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -58,4 +59,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2024-10-20 17:33:22
+-- Dump completed on 2024-11-17 18:06:18

@@ -16,37 +16,32 @@
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 --
--- Table structure for table `users`
+-- Table structure for table `expenses`
 --
 
-DROP TABLE IF EXISTS `users`;
+DROP TABLE IF EXISTS `expenses`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `users` (
+CREATE TABLE `expenses` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `Name` varchar(255) NOT NULL,
-  `Email` varchar(255) NOT NULL,
-  `UserName` varchar(255) NOT NULL,
-  `Password` varchar(255) NOT NULL,
-  `Image` varchar(255) DEFAULT NULL,
-  `Type` varchar(255) NOT NULL,
-  `Store` varchar(255) NOT NULL,
-  `register_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `last_login` datetime DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `Email` (`Email`),
-  UNIQUE KEY `UserName` (`UserName`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  `user` varchar(255) NOT NULL,
+  `store` varchar(255) NOT NULL,
+  `remark` varchar(2500) DEFAULT NULL,
+  `amount` decimal(10,4) NOT NULL,
+  `saveTime` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `insertAt` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Dumping data for table `users`
+-- Dumping data for table `expenses`
 --
 
-LOCK TABLES `users` WRITE;
-/*!40000 ALTER TABLE `users` DISABLE KEYS */;
-INSERT INTO `users` VALUES (1,'Abdul Rahman','arabdul0983@gmail.com','abdul','$2b$10$sykr6ByJ1LJqKYBU2ao/.ukoPF/aFFRHo./KdNW8NR/Q1bfMJxYP.','uploads\\1728090418069.jpg','admin','Wariyapola','2024-10-05 06:36:58','2024-10-06 06:49:54');
-/*!40000 ALTER TABLE `users` ENABLE KEYS */;
+LOCK TABLES `expenses` WRITE;
+/*!40000 ALTER TABLE `expenses` DISABLE KEYS */;
+INSERT INTO `expenses` VALUES (1,'abdul','all','new',200.0000,'2024-11-03 12:00:47','2024-11-03 12:00:47'),(2,'abdul','all','for tea',200.0000,'2024-11-03 14:03:38','2024-11-03 14:03:38'),(3,'abdul','all','new',200.0000,'2024-11-03 14:03:50','2024-11-03 14:03:50'),(4,'abdul','all','gyui',200.0000,'2024-11-03 14:05:59','2024-11-03 14:05:59'),(5,'abdul','all','erfgr',100.0000,'2024-11-03 14:06:47','2024-11-03 14:06:47'),(6,'abdul','all','kghuk',200.0000,'2024-11-03 14:09:09','2024-11-03 14:09:09');
+/*!40000 ALTER TABLE `expenses` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
@@ -58,4 +53,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2024-10-06  7:52:51
+-- Dump completed on 2024-11-17 18:06:17

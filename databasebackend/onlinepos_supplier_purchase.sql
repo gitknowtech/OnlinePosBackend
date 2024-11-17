@@ -16,29 +16,36 @@
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 --
--- Table structure for table `banks`
+-- Table structure for table `supplier_purchase`
 --
 
-DROP TABLE IF EXISTS `banks`;
+DROP TABLE IF EXISTS `supplier_purchase`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `banks` (
+CREATE TABLE `supplier_purchase` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `bankName` varchar(255) NOT NULL,
-  `user` varchar(255) NOT NULL,
-  `store` varchar(255) NOT NULL,
-  `saveTime` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  `generatedid` varchar(5) NOT NULL,
+  `InvoiceId` varchar(50) NOT NULL,
+  `ProCode` varchar(255) NOT NULL,
+  `ProName` varchar(255) NOT NULL,
+  `UnitPrice` decimal(10,2) NOT NULL,
+  `Quantity` decimal(10,4) NOT NULL,
+  `Total` decimal(10,2) NOT NULL,
+  `Supplier` varchar(255) NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `generatedid` (`generatedid`),
+  CONSTRAINT `supplier_purchase_ibfk_1` FOREIGN KEY (`generatedid`) REFERENCES `supplier_purchase_last` (`generatedid`)
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Dumping data for table `banks`
+-- Dumping data for table `supplier_purchase`
 --
 
-LOCK TABLES `banks` WRITE;
-/*!40000 ALTER TABLE `banks` DISABLE KEYS */;
-/*!40000 ALTER TABLE `banks` ENABLE KEYS */;
+LOCK TABLES `supplier_purchase` WRITE;
+/*!40000 ALTER TABLE `supplier_purchase` DISABLE KEYS */;
+INSERT INTO `supplier_purchase` VALUES (3,'92790','2411170001','001','new product',100.00,50.0000,5000.00,'003'),(4,'92790','2411170001','002','new product 2',150.00,10.0000,1500.00,'003');
+/*!40000 ALTER TABLE `supplier_purchase` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
@@ -50,4 +57,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2024-10-06  7:52:51
+-- Dump completed on 2024-11-17 18:06:19

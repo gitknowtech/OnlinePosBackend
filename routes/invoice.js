@@ -109,32 +109,33 @@ const generateInvoiceId = () => {
 // API to add a new sales record
 router.post("/add_sales", async (req, res) => {
   const {
-    GrossTotal,
-    CustomerId,
-    discountPercent,
-    discountAmount,
-    netAmount,
-    CashPay,
-    CardPay,
-    PaymentType,
-    Balance,
-    invoiceItems, // Array of invoice items
-    user, // Add user
-    store, // Add store
+    GrossTotal = 0,
+    CustomerId = "Unknown",
+    discountPercent = 0,
+    discountAmount = 0,
+    netAmount = 0,
+    CashPay = 0,
+    CardPay = 0,
+    PaymentType = "Cash Payment",
+    Balance = 0,
+    invoiceItems = [],
+    user,
+    store,
   } = req.body;
 
+  // Validate required fields
   if (
-    !GrossTotal ||
-    !netAmount ||
+    typeof GrossTotal !== "number" ||
+    typeof netAmount !== "number" ||
     !PaymentType ||
     !Array.isArray(invoiceItems) ||
-    !user || // Ensure user is provided
-    !store || // Ensure store is provided
+    !user ||
+    !store ||
     invoiceItems.length === 0
   ) {
-    return res
-      .status(400)
-      .json({ message: "Missing required fields or invalid invoice items." });
+    return res.status(400).json({
+      message: "Missing required fields or invalid invoice items.",
+    });
   }
 
   try {
@@ -146,25 +147,25 @@ router.post("/add_sales", async (req, res) => {
     const salesValues = [
       invoiceId,
       GrossTotal,
-      CustomerId || "Unknown",
-      discountPercent || 0,
-      discountAmount || 0,
+      CustomerId,
+      discountPercent,
+      discountAmount,
       netAmount,
-      CashPay || 0,
-      CardPay || 0,
+      CashPay,
+      CardPay,
       PaymentType,
-      Balance || 0,
-      user, // Include user
-      store, // Include store
+      Balance,
+      user,
+      store,
     ];
 
-    // Validate and fetch missing details for invoice items
+    // Validate and fetch details for invoice items
     const validatedItems = await Promise.all(
       invoiceItems.map(async (item) => {
-        const { barcode, quantity } = item;
+        const { barcode, quantity = 0, productId } = item;
 
-        if (!barcode) {
-          console.warn("Missing barcode for item:", item);
+        if (!barcode && !productId) {
+          throw new Error("Missing barcode or productId for an invoice item.");
         }
 
         const fetchProductQuery = `
@@ -177,16 +178,12 @@ router.post("/add_sales", async (req, res) => {
         const productDetails = await new Promise((resolve, reject) => {
           db.query(
             fetchProductQuery,
-            [barcode || null, item.productId || null],
+            [barcode || null, productId || null],
             (err, results) => {
               if (err || results.length === 0) {
-                console.error(
-                  `Error fetching product details for item: ${barcode || item.productId}`,
-                  err ? err.message : "No results found"
-                );
                 return reject(
                   new Error(
-                    `Product details not found for barcode: ${barcode || "undefined"}`
+                    `Product not found for barcode or productId: ${barcode || productId}`
                   )
                 );
               }
@@ -198,7 +195,7 @@ router.post("/add_sales", async (req, res) => {
         return {
           ...productDetails,
           ...item,
-          quantity: parseFloat(quantity), // Ensure quantity is parsed
+          quantity: parseFloat(quantity) || 0,
         };
       })
     );
@@ -206,30 +203,27 @@ router.post("/add_sales", async (req, res) => {
     // Prepare invoice items values
     const invoiceItemsValues = validatedItems.map((item) => [
       invoiceId,
-      item.productId, // Include productId
-      item.productName,
-      item.cost,
-      item.mrp,
+      item.productId || "Unknown",
+      item.productName || "Unknown Product",
+      item.cost || 0,
+      item.mrp || 0,
       item.discount || 0,
       item.rate || 0,
-      item.quantity,
+      item.quantity || 0,
       item.amount || 0,
-      item.barcode, // Include barcode
-      user, // Include UserName
-      store, // Include Store
+      item.barcode || null,
+      user,
+      store,
     ]);
-
-    console.log("Validated Invoice Items:", validatedItems);
 
     // Start transaction
     db.beginTransaction((err) => {
       if (err) {
-        console.error("Error starting transaction:", err.message, err.stack);
-        res.status(500).json({ message: "Failed to start transaction" });
-        return;
+        console.error("Error starting transaction:", err.message);
+        return res.status(500).json({ message: "Failed to start transaction" });
       }
 
-      // Insert into sales
+      // Insert into sales table
       const insertSalesQuery = `
         INSERT INTO sales (
           invoiceId, GrossTotal, CustomerId, discountPercent, discountAmount,
@@ -241,122 +235,48 @@ router.post("/add_sales", async (req, res) => {
       db.query(insertSalesQuery, salesValues, (err) => {
         if (err) {
           return db.rollback(() => {
-            console.error("Error adding sales record:", err.message, err.stack);
-            res.status(500).json({ message: "Failed to add sales record" });
+            console.error("Error adding sales record:", err.message);
+            return res.status(500).json({ message: "Failed to add sales record" });
           });
         }
 
-        // Insert into invoices
+        // Insert into invoices table
         const insertItemsQuery = `
           INSERT INTO invoices (
             invoiceId, productId, name, cost, mrp, discount, rate, quantity, totalAmount, barcode, UserName, Store
           ) VALUES ?
         `;
-        db.query(insertItemsQuery, [invoiceItemsValues], async (err) => {
+
+        db.query(insertItemsQuery, [invoiceItemsValues], (err) => {
           if (err) {
             return db.rollback(() => {
-              console.error("Error adding invoice items:", err.message, err.stack);
-              res.status(500).json({ message: "Failed to add invoice items" });
+              console.error("Error adding invoice items:", err.message);
+              return res.status(500).json({ message: "Failed to add invoice items" });
             });
           }
 
-          try {
-            // Update stock quantities for each product and log stock out
-            for (const item of validatedItems) {
-              const { quantity, barcode, productId, productName } = item;
-
-              if (!barcode || quantity <= 0) {
-                console.warn(`Skipping stock update for item:`, item);
-                continue;
-              }
-
-              // Step 1: Update stock quantity
-              const updateStockQuery = `
-                UPDATE products
-                SET stockQuantity = stockQuantity - ?
-                WHERE barcode = ? AND stockQuantity >= ?
-              `;
-
-              await new Promise((resolve, reject) => {
-                db.query(
-                  updateStockQuery,
-                  [quantity, barcode, quantity],
-                  (err, results) => {
-                    if (err) {
-                      console.error(
-                        `Error updating stock for barcode ${barcode}:`,
-                        err.message,
-                        err.stack
-                      );
-                      return reject(err);
-                    }
-
-                    if (results.affectedRows === 0) {
-                      return reject(
-                        new Error(
-                          `Not enough stock available for product with barcode ${barcode}`
-                        )
-                      );
-                    }
-                    resolve();
-                  }
-                );
-              });
-
-              // Step 2: Log stock-out event in `product_stockout` table
-              const insertStockOutQuery = `
-                INSERT INTO product_stockout (productId, productName, barcode, quantity, type, store, date)
-                VALUES (?, ?, ?, ?, 'Selling Product', ?, NOW())
-              `;
-
-              await new Promise((resolve, reject) => {
-                db.query(
-                  insertStockOutQuery,
-                  [productId, productName, barcode, quantity, store],
-                  (err) => {
-                    if (err) {
-                      console.error(
-                        `Error logging stock-out for barcode ${barcode}:`,
-                        err.message,
-                        err.stack
-                      );
-                      return reject(err);
-                    }
-                    resolve();
-                  }
-                );
+          // Commit transaction
+          db.commit((err) => {
+            if (err) {
+              return db.rollback(() => {
+                console.error("Transaction commit failed:", err.message);
+                return res.status(500).json({ message: "Transaction failed" });
               });
             }
-
-            // Commit transaction
-            db.commit((err) => {
-              if (err) {
-                return db.rollback(() => {
-                  console.error("Transaction commit failed:", err.message, err.stack);
-                  res.status(500).json({ message: "Transaction failed" });
-                });
-              }
-              console.log("Sales record and invoice items saved successfully.");
-              res.status(201).json({
-                message: "Sales record and invoice items saved successfully.",
-                invoiceId,
-              });
+            console.log("Sales record and invoice items saved successfully.");
+            return res.status(201).json({
+              message: "Sales record and invoice items saved successfully.",
+              invoiceId,
             });
-          } catch (err) {
-            db.rollback(() => {
-              console.error("Error updating stock quantities:", err.message, err.stack);
-              res.status(400).json({ message: err.message });
-            });
-          }
+          });
         });
       });
     });
   } catch (err) {
-    console.error("Error saving sales or invoice items:", err.message, err.stack);
-    res.status(500).json({ message: "Internal server error", error: err.message });
+    console.error("Error processing sales request:", err.message);
+    return res.status(500).json({ message: "Internal server error", error: err.message });
   }
 });
-
 
 
 
@@ -437,10 +357,11 @@ router.get("/fetch_invoices", (req, res) => {
     return res.status(400).json({ message: "Store is required." });
   }
 
-  // SQL query to fetch invoices filtered by Store
+  // SQL query to fetch invoices filtered by Store in descending order of createdAt
   const query = `
     SELECT * FROM invoices
     WHERE Store = ?
+    ORDER BY createdAt DESC
   `;
 
   // Execute the query
@@ -452,14 +373,13 @@ router.get("/fetch_invoices", (req, res) => {
         error: err.message,
       });
     }
-    console.log("Fetched invoices:", results); // Log the results
+    console.log("Fetched invoices in descending order:", results); // Log the results
     res.status(200).json(results); // Return results as JSON
   });
 });
 
 
-
-router.get("/fetch_sales", (req, res) => {
+router.get("/fetch_sales_sales", (req, res) => {
   const { Store } = req.query; // Get Store parameter from the query
   console.log("Store received in API request:", Store); // Log the Store value
 
@@ -467,12 +387,13 @@ router.get("/fetch_sales", (req, res) => {
     return res.status(400).json({ message: "Store is required." });
   }
 
-  // SQL query to fetch sales filtered by Store
+  // SQL query to fetch sales filtered by Store, sorted by createdAt in descending order
   const query = `
     SELECT id, invoiceId, GrossTotal, CustomerId, discountPercent, discountAmount,
            netAmount, CashPay, CardPay, PaymentType, Balance, createdAt
     FROM sales
     WHERE Store = ?
+    ORDER BY createdAt DESC
   `;
 
   // Execute the query
@@ -484,11 +405,10 @@ router.get("/fetch_sales", (req, res) => {
         error: err.message,
       });
     }
-    console.log("Fetched sales:", results); // Log the results
+    console.log("Fetched sales in descending order:", results); // Log the results
     res.status(200).json(results); // Return results as JSON
   });
 });
-
 
 
 
