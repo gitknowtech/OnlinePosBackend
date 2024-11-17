@@ -627,6 +627,36 @@ router.get('/search', (req, res) => {
 });
 
 
+router.get('/search_invoice_by_store', (req, res) => {
+  const { query, store } = req.query;
+
+  if (!query || !store) {
+    return res.status(400).json({ message: "Search query and store are required." });
+  }
+
+  // SQL query to search by product name, barcode, or product ID for a specific store with "active" status
+  const sqlQuery = `
+    SELECT productId, productName, barcode, mrpPrice, costPrice, discountPrice, wholesalePrice, lockedPrice, store
+    FROM products
+    WHERE (productName LIKE ? OR barcode LIKE ? OR productId LIKE ?)
+      AND store = ?
+      AND status = 'active'
+    LIMIT 10
+  `;
+
+  const searchTerm = `%${query}%`; // Using % wildcard for partial match
+
+  db.query(sqlQuery, [searchTerm, searchTerm, searchTerm, store], (err, results) => {
+    if (err) {
+      console.error("Error fetching product suggestions:", err); 
+      return res.status(500).json({ message: "Failed to fetch product suggestions." });
+    }
+    res.status(200).json(results); // Return matching products
+  });
+});
+
+
+
 
 
 router.put('/update_product/:id', async (req, res) => {

@@ -37,6 +37,7 @@ const createInvoicesTable = () => {
     CREATE TABLE IF NOT EXISTS invoices (
       id INT AUTO_INCREMENT PRIMARY KEY,
       invoiceId VARCHAR(100) NOT NULL,
+      productId VARCHAR(1000) NOT NULL,
       name VARCHAR(255) NOT NULL,
       cost DECIMAL(10,2),
       mrp DECIMAL(10,2),
@@ -105,8 +106,6 @@ const generateInvoiceId = () => {
 
 
 
-
-// API to add a new sales record
 // API to add a new sales record
 router.post("/add_sales", async (req, res) => {
   const {
@@ -169,7 +168,7 @@ router.post("/add_sales", async (req, res) => {
         }
 
         const fetchProductQuery = `
-          SELECT productId, productName, barcode, cost, mrp, stockQuantity
+          SELECT productId, productName, barcode, costPrice, mrpPrice, stockQuantity
           FROM products
           WHERE barcode = ? OR productId = ?
           LIMIT 1
@@ -207,6 +206,7 @@ router.post("/add_sales", async (req, res) => {
     // Prepare invoice items values
     const invoiceItemsValues = validatedItems.map((item) => [
       invoiceId,
+      item.productId, // Include productId
       item.productName,
       item.cost,
       item.mrp,
@@ -249,7 +249,7 @@ router.post("/add_sales", async (req, res) => {
         // Insert into invoices
         const insertItemsQuery = `
           INSERT INTO invoices (
-            invoiceId, name, cost, mrp, discount, rate, quantity, totalAmount, barcode, UserName, Store
+            invoiceId, productId, name, cost, mrp, discount, rate, quantity, totalAmount, barcode, UserName, Store
           ) VALUES ?
         `;
         db.query(insertItemsQuery, [invoiceItemsValues], async (err) => {
@@ -406,20 +406,24 @@ router.get('/stock_quantity', (req, res) => {
     return res.status(400).json({ message: 'Barcode is required' });
   }
 
-  const query = 'SELECT stockQuantity FROM products WHERE barcode = ?';
+  const query = `
+    SELECT stockQuantity 
+    FROM products 
+    WHERE barcode = ? AND status = 'active'
+  `;
 
   db.query(query, [barcode], (err, results) => {
     if (err) {
-      console.error('Error fetching stock quantity:', err);
+      console.error('Error fetching stock quantity:', err.message);
       return res.status(500).json({ message: 'Internal server error' });
     }
 
     if (results.length === 0) {
-      return res.status(404).json({ message: 'Product not found' });
+      return res.status(404).json({ message: 'Product not found or inactive' });
     }
 
     const stockQuantity = results[0].stockQuantity;
-    res.json({ stockQuantity });
+    res.status(200).json({ stockQuantity });
   });
 });
 
