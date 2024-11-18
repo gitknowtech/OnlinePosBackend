@@ -19,6 +19,7 @@ const invoiceRouter = require('./routes/invoice')
 const expensesRouter = require('./routes/expenses')
 const customerRouter = require('./routes/customer')
 const supplierPurchaseRouter = require('./routes/purchases')
+const SupplierLoanRouter = require('./routes/supplier_loan')
 
 const app = express();
 app.use(cors());
@@ -40,6 +41,7 @@ app.use('/api/invoices', invoiceRouter)
 app.use('/api/expenses', expensesRouter)
 app.use('/api/customer', customerRouter)
 app.use('/api/purchases', supplierPurchaseRouter)
+app.use('./api/supplierLoans', SupplierLoanRouter)
 
 
 

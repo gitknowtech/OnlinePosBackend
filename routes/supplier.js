@@ -1,8 +1,14 @@
 const express = require('express');
 const db = require('../db'); // Your database connection
 const moment = require('moment'); // For formatting dates
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
+const crypto = require("crypto");
+
 
 const router = express.Router();
+
 
 // Create suppliers table if it doesn't exist
 const createSuppliersTable = () => {
@@ -57,6 +63,8 @@ const createBankSupplierTable = () => {
     }
   });
 };
+
+
 
 // Function to create the delete_suppliers table
 const createDeleteSuppliersTable = () => {
@@ -114,12 +122,41 @@ const createDeleteBankSupplierTable = () => {
 
 
 
+// Function to create the banksupplier table
+const createSupplierLoanTable = () => {
+  const createTableQuery = `
+    CREATE TABLE IF NOT EXISTS supplier_loan (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      generatedId VARCHAR(255) UNIQUE NOT NULL,
+      supId VARCHAR(255) NOT NULL,
+      supName VARCHAR(255) NOT NULL,
+      loanAmount DECIMAL(10, 2) NOT NULL,
+      cashAmount DECIMAL(10, 2) DEFAULT 0.00,
+      totalAmount DECIMAL(10, 2) AS (loanAmount + cashAmount) STORED, -- Generated column
+      billNumber VARCHAR(255) NOT NULL,
+      description TEXT,
+      filePath VARCHAR(255),
+      saveTime DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+  `;
+
+  db.query(createTableQuery, (err) => {
+    if (err) {
+      console.error("Error creating supplier_loan table:", err);
+    } else {
+      console.log("supplier_loan table created or already exists.");
+    }
+  });
+};
+
+
 
 // Initialize tables
 createSuppliersTable();
 createBankSupplierTable();
 createDeleteSuppliersTable();
 createDeleteBankSupplierTable();
+createSupplierLoanTable();
 
 
 
@@ -684,5 +721,221 @@ router.put("/update_supplier/:id", (req, res) => {
 });
 
 
-// Export the router
+
+// Configure Multer for file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadPath = path.join(__dirname, "../uploads/supplier_loan");
+    cb(null, uploadPath);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, `${uniqueSuffix}-${file.originalname}`);
+  },
+});
+
+const upload = multer({ storage });
+
+// Add Supplier Loan with File Upload
+router.post("/add_loan", upload.single("file"), (req, res) => {
+  const { supId, supName, loanAmount, billNumber, description, cashAmount } = req.body;
+  const filePath = req.file ? req.file.path : null; // Save absolute path
+
+  if (!supId || !supName || !loanAmount || !billNumber) {
+    return res.status(400).json({ message: "Missing required fields." });
+  }
+
+  // Generate a unique 5-character alphanumeric ID
+  const generatedId = crypto.randomBytes(3).toString("hex").toUpperCase();
+
+  const query = `
+    INSERT INTO supplier_loan (generatedId, supId, supName, loanAmount, cashAmount, billNumber, description, filePath)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+
+  db.query(
+    query,
+    [generatedId, supId, supName, loanAmount, cashAmount || 0, billNumber, description, filePath],
+    (err, result) => {
+      if (err) {
+        console.error("Error saving supplier loan:", err);
+        return res.status(500).json({ message: "Error saving loan details." });
+      }
+
+      res.status(201).json({
+        message: "Supplier loan added successfully.",
+        loanId: result.insertId,
+      });
+    }
+  );
+});
+
+
+
+
+// Serve Uploaded Files
+router.get("/view_file", (req, res) => {
+  const filePath = req.query.filePath;
+
+  if (!filePath) {
+    return res.status(400).json({ message: "File path is required." });
+  }
+
+  // Serve file from absolute path
+  fs.access(filePath, fs.constants.F_OK, (err) => {
+    if (err) {
+      console.error("Error accessing file:", err);
+      return res.status(404).json({ message: "File not found." });
+    }
+
+    res.sendFile(filePath, (sendErr) => {
+      if (sendErr) {
+        console.error("Error sending file:", sendErr);
+        return res.status(500).json({ message: "Error serving file." });
+      }
+    });
+  });
+});
+
+
+
+
+// Update Supplier Loan
+router.put("/update_supplier_loan/:id", (req, res) => {
+  const { id } = req.params;
+  const { loanAmount, description, billNumber, cashAmount } = req.body;
+
+  const query = `
+    UPDATE supplier_loan 
+    SET loanAmount = ?, description = ?, billNumber = ?, cashAmount = ?
+    WHERE id = ?
+  `;
+  db.query(query, [loanAmount, description, billNumber, cashAmount, id], (err, results) => {
+    if (err) {
+      console.error("Error updating supplier loan:", err);
+      return res.status(500).json({ message: "Error updating loan." });
+    }
+    if (results.affectedRows === 0) {
+      return res.status(404).json({ message: "Loan not found." });
+    }
+    res.status(200).json({ message: "Loan updated successfully." });
+  });
+});
+
+
+
+
+// Delete Supplier Loan and Associated File
+router.delete("/delete_supplier_loan/:id", (req, res) => {
+  const { id } = req.params;
+
+  const selectQuery = "SELECT filePath FROM supplier_loan WHERE id = ?";
+  db.query(selectQuery, [id], (err, results) => {
+    if (err) {
+      return res.status(500).json({ message: "Error fetching loan details." });
+    }
+    if (results.length === 0) {
+      return res.status(404).json({ message: "Loan not found." });
+    }
+
+    const filePath = results[0].filePath;
+
+    if (filePath) {
+      fs.unlink(filePath, (unlinkErr) => {
+        if (unlinkErr) {
+          console.error("Error deleting file:", unlinkErr);
+          return res
+            .status(500)
+            .json({ message: "Error deleting associated file." });
+        }
+
+        const deleteQuery = "DELETE FROM supplier_loan WHERE id = ?";
+        db.query(deleteQuery, [id], (deleteErr, deleteResults) => {
+          if (deleteErr) {
+            return res.status(500).json({ message: "Error deleting loan." });
+          }
+          res.status(200).json({ message: "Loan and file deleted successfully." });
+        });
+      });
+    } else {
+      const deleteQuery = "DELETE FROM supplier_loan WHERE id = ?";
+      db.query(deleteQuery, [id], (deleteErr, deleteResults) => {
+        if (deleteErr) {
+          return res.status(500).json({ message: "Error deleting loan." });
+        }
+        res.status(200).json({ message: "Loan deleted successfully." });
+      });
+    }
+  });
+});
+
+
+
+
+// Get Supplier Loans
+router.get("/get_loans_supplier_loan/:supplierId", (req, res) => {
+  const { supplierId } = req.params;
+  const query = `
+    SELECT id, generatedId, supId, supName, loanAmount, cashAmount, billNumber, description, filePath, saveTime
+    FROM supplier_loan
+    WHERE supId = ?
+  `;
+
+  db.query(query, [supplierId], (err, results) => {
+    if (err) {
+      console.error("Error fetching loans:", err);
+      return res.status(500).json({ message: "Error fetching loans." });
+    }
+
+    const formattedResults = results.map((loan) => ({
+      ...loan,
+      saveTime: loan.saveTime
+        ? moment(loan.saveTime).format("YYYY-MM-DD HH:mm:ss")
+        : "N/A",
+    }));
+
+    res.status(200).json(formattedResults);
+  });
+});
+
+
+
+
+//loan by date
+router.get("/get_loans_by_date/:supplierId", (req, res) => {
+  const { supplierId } = req.params;
+  const { startDate, endDate } = req.query;
+
+  if (!startDate || !endDate) {
+    return res.status(400).json({ message: "Start and end dates are required." });
+  }
+
+  const query = `
+    SELECT * FROM supplier_loan
+    WHERE supId = ?
+    AND saveTime BETWEEN ? AND ?
+  `;
+
+  db.query(query, [supplierId, startDate, endDate], (err, results) => {
+    if (err) {
+      console.error("Error fetching loans by date:", err);
+      return res.status(500).json({ message: "Error fetching loans by date." });
+    }
+
+    const formattedResults = results.map((loan) => ({
+      ...loan,
+      saveTime: loan.saveTime ? moment(loan.saveTime).format("YYYY-MM-DD HH:mm:ss") : "N/A",
+    }));
+
+    res.status(200).json(formattedResults);
+  });
+});
+
+
+
+
+
+
+
+// Export Router
 module.exports = router;
