@@ -150,6 +150,31 @@ const createSupplierLoanTable = () => {
 };
 
 
+// Function to create the banksupplier table
+const createSupplierLoanPaymentTable = () => {
+  const createTableQuery = `
+   CREATE TABLE IF NOT EXISTS supplier_loan_payment (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    generatedId VARCHAR(255) NOT NULL,
+    paymentAmount DECIMAL(10, 2) NOT NULL,
+    referenceNumber VARCHAR(255) NOT NULL,
+    saveTime DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (generatedId) REFERENCES supplier_loan(generatedId)
+);
+
+  `;
+
+  db.query(createTableQuery, (err) => {
+    if (err) {
+      console.error("Error creating supplier_loan table:", err);
+    } else {
+      console.log("supplier_loan_payment table created or already exists.");
+    }
+  });
+};
+
+
+
 
 // Initialize tables
 createSuppliersTable();
@@ -157,6 +182,7 @@ createBankSupplierTable();
 createDeleteSuppliersTable();
 createDeleteBankSupplierTable();
 createSupplierLoanTable();
+createSupplierLoanPaymentTable();
 
 
 
@@ -932,6 +958,64 @@ router.get("/get_loans_by_date/:supplierId", (req, res) => {
 });
 
 
+
+
+
+// Add payment record and update supplier_loan cashAmount
+// Add payment record and update supplier_loan cashAmount
+router.post("/update_payment", async (req, res) => {
+  const { generatedId, cashAmount, paymentAmount, referenceNumber } = req.body;
+
+  if (!generatedId || !paymentAmount || !referenceNumber) {
+    return res.status(400).json({ message: "Missing required fields." });
+  }
+
+  const connection = db; // Database connection
+
+  try {
+    // Start transaction
+    await connection.beginTransaction();
+
+    // Fetch current cashAmount for validation
+    const [loanResult] = await connection.query(
+      "SELECT cashAmount, totalAmount FROM supplier_loan WHERE generatedId = ?",
+      [generatedId]
+    );
+
+    if (loanResult.length === 0) {
+      throw new Error("Loan not found.");
+    }
+
+    const currentCashAmount = parseFloat(loanResult[0].cashAmount || 0);
+    const grossTotal = parseFloat(loanResult[0].totalAmount || 0);
+
+    // Validate cashAmount
+    if (cashAmount > grossTotal || cashAmount < currentCashAmount) {
+      throw new Error("Invalid cash amount.");
+    }
+
+    // Update supplier_loan
+    await connection.query(
+      "UPDATE supplier_loan SET cashAmount = ?, creditAmount = ? WHERE generatedId = ?",
+      [cashAmount, grossTotal - cashAmount, generatedId]
+    );
+
+    // Insert into supplier_loan_payment
+    await connection.query(
+      "INSERT INTO supplier_loan_payment (generatedId, paymentAmount, referenceNumber) VALUES (?, ?, ?)",
+      [generatedId, paymentAmount, referenceNumber]
+    );
+
+    // Commit transaction
+    await connection.commit();
+
+    res.status(200).json({ message: "Payment updated successfully." });
+  } catch (err) {
+    await connection.rollback();
+    console.error("Error updating payment:", err);
+    res.status(500).json({ message: "Error updating payment." });
+  }
+});
 
 
 
