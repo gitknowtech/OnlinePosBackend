@@ -876,7 +876,7 @@ router.delete("/delete_supplier_loan/:id", (req, res) => {
 router.get("/get_loans_supplier_loan/:supplierId", (req, res) => {
   const { supplierId } = req.params;
   const query = `
-    SELECT id, generatedId, supId, supName, loanAmount, cashAmount, billNumber, description, filePath, saveTime
+    SELECT id, generatedId, supId, supName, loanAmount, cashAmount,totalAmount, billNumber, description, filePath, saveTime
     FROM supplier_loan
     WHERE supId = ?
   `;
