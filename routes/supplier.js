@@ -186,7 +186,7 @@ createSupplierLoanPaymentTable();
 
 
 
- 
+
 
 // API to create a supplier and save bank details
 router.post("/create_supplier", (req, res) => {
@@ -426,7 +426,7 @@ router.get("/get_suppliers_removed", (req, res) => {
 // Route to get all bank details for a specific supplier ID
 router.get("/get_supplier_bank_details/:supId", (req, res) => {
   const { supId } = req.params;
-  
+
   const getBankDetailsQuery = `
     SELECT supBank, supBankNo, saveTime 
     FROM banksupplier 
@@ -528,7 +528,7 @@ router.get("/get_supplier_mobile_details/:Supid", (req, res) => {
 });
 
 
- 
+
 
 
 
@@ -721,7 +721,7 @@ router.put("/update_supplier/:id", (req, res) => {
           }
         } else {
           console.log("No existing bank record found. Adding new bank details.");
-          
+
           const insertBankQuery = `
             INSERT INTO banksupplier (supId, supName, supBank, supBankNo)
             VALUES (?, ?, ?, ?)
@@ -761,6 +761,8 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({ storage });
+
+
 
 // Add Supplier Loan with File Upload
 router.post("/add_loan", upload.single("file"), (req, res) => {
@@ -930,17 +932,24 @@ router.get("/get_loans_supplier_loan/:supplierId", (req, res) => {
 //loan by date
 router.get("/get_loans_by_date/:supplierId", (req, res) => {
   const { supplierId } = req.params;
-  const { startDate, endDate } = req.query;
+  const { startDate, endDate, settlementStatus } = req.query;
 
   if (!startDate || !endDate) {
     return res.status(400).json({ message: "Start and end dates are required." });
   }
 
-  const query = `
+  let query = `
     SELECT * FROM supplier_loan
     WHERE supId = ?
     AND saveTime BETWEEN ? AND ?
   `;
+
+  // Apply settlement filter if specified
+  if (settlementStatus === "Settled") {
+    query += " AND loanAmount = 0";
+  } else if (settlementStatus === "Unsettled") {
+    query += " AND loanAmount > 0";
+  }
 
   db.query(query, [supplierId, startDate, endDate], (err, results) => {
     if (err) {
@@ -960,63 +969,43 @@ router.get("/get_loans_by_date/:supplierId", (req, res) => {
 
 
 
-
-// Add payment record and update supplier_loan cashAmount
-// Add payment record and update supplier_loan cashAmount
-router.post("/update_payment", async (req, res) => {
-  const { generatedId, cashAmount, paymentAmount, referenceNumber } = req.body;
-
-  if (!generatedId || !paymentAmount || !referenceNumber) {
-    return res.status(400).json({ message: "Missing required fields." });
-  }
-
-  const connection = db; // Database connection
+router.post('/add_supplier_loan_payment', async (req, res) => {
+  const { generatedId, paymentAmount, referenceNumber } = req.body;
 
   try {
-    // Start transaction
-    await connection.beginTransaction();
-
-    // Fetch current cashAmount for validation
-    const [loanResult] = await connection.query(
-      "SELECT cashAmount, totalAmount FROM supplier_loan WHERE generatedId = ?",
-      [generatedId]
-    );
-
-    if (loanResult.length === 0) {
-      throw new Error("Loan not found.");
-    }
-
-    const currentCashAmount = parseFloat(loanResult[0].cashAmount || 0);
-    const grossTotal = parseFloat(loanResult[0].totalAmount || 0);
-
-    // Validate cashAmount
-    if (cashAmount > grossTotal || cashAmount < currentCashAmount) {
-      throw new Error("Invalid cash amount.");
-    }
-
-    // Update supplier_loan
-    await connection.query(
-      "UPDATE supplier_loan SET cashAmount = ?, creditAmount = ? WHERE generatedId = ?",
-      [cashAmount, grossTotal - cashAmount, generatedId]
-    );
-
-    // Insert into supplier_loan_payment
-    await connection.query(
-      "INSERT INTO supplier_loan_payment (generatedId, paymentAmount, referenceNumber) VALUES (?, ?, ?)",
-      [generatedId, paymentAmount, referenceNumber]
-    );
-
-    // Commit transaction
-    await connection.commit();
-
-    res.status(200).json({ message: "Payment updated successfully." });
-  } catch (err) {
-    await connection.rollback();
-    console.error("Error updating payment:", err);
-    res.status(500).json({ message: "Error updating payment." });
+    const query = `
+      INSERT INTO supplier_loan_payment (generatedId, paymentAmount, referenceNumber)
+      VALUES (?, ?, ?)
+    `;
+    await db.query(query, [generatedId, paymentAmount, referenceNumber]);
+    res.json({ message: 'Payment record added successfully.' });
+  } catch (error) {
+    console.error("Error adding supplier_loan_payment:", error);
+    res.status(500).json({ message: 'Failed to add payment record.' });
   }
 });
 
+
+router.put('/update_supplier_loan_new/:generatedId', async (req, res) => {
+  const { generatedId } = req.params;
+  const { loanAmount, cashAmount } = req.body; // Receive both values
+
+  try {
+    const query = `
+      UPDATE supplier_loan
+      SET loanAmount = ?, cashAmount = ?
+      WHERE generatedId = ?
+    `;
+
+    // Update loanAmount and cashAmount
+    await db.query(query, [loanAmount, cashAmount, generatedId]);
+
+    res.json({ message: 'Loan updated successfully.' });
+  } catch (error) {
+    console.error("Error updating supplier_loan:", error);
+    res.status(500).json({ message: 'Failed to update loan.' });
+  }
+});
 
 
 
