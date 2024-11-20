@@ -158,6 +158,7 @@ const createSupplierLoanPaymentTable = () => {
     generatedId VARCHAR(255) NOT NULL,
     paymentAmount DECIMAL(10, 2) NOT NULL,
     referenceNumber VARCHAR(255) NOT NULL,
+    filePath VARCHAR(500),
     saveTime DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (generatedId) REFERENCES supplier_loan(generatedId)
 );
@@ -769,7 +770,8 @@ router.post("/add_loan", upload.single("file"), (req, res) => {
   const { supId, supName, loanAmount, billNumber, description, cashAmount } = req.body;
   const filePath = req.file ? req.file.path : null; // Save absolute path
 
-  if (!supId || !supName || !loanAmount || !billNumber) {
+  // Validation: Allow loanAmount = 0 but reject undefined or null
+  if (!supId || !supName || loanAmount === undefined || loanAmount === null || !billNumber) {
     return res.status(400).json({ message: "Missing required fields." });
   }
 
@@ -809,14 +811,41 @@ router.get("/view_file", (req, res) => {
     return res.status(400).json({ message: "File path is required." });
   }
 
-  // Serve file from absolute path
-  fs.access(filePath, fs.constants.F_OK, (err) => {
+  const absolutePath = path.resolve(filePath); // Resolve the path to an absolute path
+
+  fs.access(absolutePath, fs.constants.F_OK, (err) => {
     if (err) {
       console.error("Error accessing file:", err);
       return res.status(404).json({ message: "File not found." });
     }
 
-    res.sendFile(filePath, (sendErr) => {
+    res.sendFile(absolutePath, (sendErr) => {
+      if (sendErr) {
+        console.error("Error sending file:", sendErr);
+        return res.status(500).json({ message: "Error serving file." });
+      }
+    });
+  });
+});
+
+
+router.get("/view_file_new", (req, res) => {
+  const filePath = req.query.filePath;
+
+  if (!filePath) {
+    return res.status(400).json({ message: "File path is required." });
+  }
+
+  // Resolve path to the uploads directory
+  const absolutePath = path.join(__dirname, "../", filePath);
+
+  fs.access(absolutePath, fs.constants.F_OK, (err) => {
+    if (err) {
+      console.error("Error accessing file:", err);
+      return res.status(404).json({ message: "File not found." });
+    }
+
+    res.sendFile(absolutePath, (sendErr) => {
       if (sendErr) {
         console.error("Error sending file:", sendErr);
         return res.status(500).json({ message: "Error serving file." });
@@ -854,49 +883,110 @@ router.put("/update_supplier_loan/:id", (req, res) => {
 
 
 // Delete Supplier Loan and Associated File
+
 router.delete("/delete_supplier_loan/:id", (req, res) => {
   const { id } = req.params;
 
-  const selectQuery = "SELECT filePath FROM supplier_loan WHERE id = ?";
+  // Query to fetch all file paths associated with the generatedId
+  const selectQuery = `
+    SELECT 
+      sl.filePath AS loanFilePath, 
+      slp.filePath AS paymentFilePath,
+      sl.generatedId AS generatedId
+    FROM 
+      supplier_loan sl
+    LEFT JOIN 
+      supplier_loan_payment slp 
+    ON 
+      sl.generatedId = slp.generatedId
+    WHERE 
+      sl.id = ?
+  `;
+
   db.query(selectQuery, [id], (err, results) => {
     if (err) {
+      console.error("Error fetching loan details:", err);
       return res.status(500).json({ message: "Error fetching loan details." });
     }
+
     if (results.length === 0) {
       return res.status(404).json({ message: "Loan not found." });
     }
 
-    const filePath = results[0].filePath;
+    // Collect unique file paths
+    const filePaths = [...new Set(results.map((row) => row.loanFilePath || row.paymentFilePath))]
+      .filter(Boolean); // Remove null or undefined file paths
 
-    if (filePath) {
-      fs.unlink(filePath, (unlinkErr) => {
-        if (unlinkErr) {
-          console.error("Error deleting file:", unlinkErr);
-          return res
-            .status(500)
-            .json({ message: "Error deleting associated file." });
-        }
+    const generatedId = results[0]?.generatedId; // Get the generatedId
 
-        const deleteQuery = "DELETE FROM supplier_loan WHERE id = ?";
-        db.query(deleteQuery, [id], (deleteErr, deleteResults) => {
-          if (deleteErr) {
-            return res.status(500).json({ message: "Error deleting loan." });
+    const deleteFiles = async (paths) => {
+      for (const filePath of paths) {
+        const absolutePath = path.isAbsolute(filePath)
+          ? filePath // Use as-is if already absolute
+          : path.join(__dirname, "../", filePath); // Prepend base path if relative
+    
+        try {
+          await fs.promises.unlink(absolutePath);
+          console.log(`Deleted file: ${absolutePath}`);
+        } catch (error) {
+          if (error.code === "ENOENT") {
+            console.warn(`File not found, skipping: ${absolutePath}`);
+          } else if (error.code === "EPERM") {
+            console.error(`Permission denied for file: ${absolutePath}`);
+          } else {
+            console.error("Error deleting file:", error);
           }
-          res.status(200).json({ message: "Loan and file deleted successfully." });
+        }
+      }
+    };
+    
+
+    const deletePayments = () => {
+      return new Promise((resolve, reject) => {
+        const deletePaymentQuery = "DELETE FROM supplier_loan_payment WHERE generatedId = ?";
+        db.query(deletePaymentQuery, [generatedId], (err, results) => {
+          if (err) {
+            console.error("Error deleting related payments:", err);
+            return reject("Error deleting related payments.");
+          }
+          resolve();
         });
       });
-    } else {
-      const deleteQuery = "DELETE FROM supplier_loan WHERE id = ?";
-      db.query(deleteQuery, [id], (deleteErr, deleteResults) => {
-        if (deleteErr) {
-          return res.status(500).json({ message: "Error deleting loan." });
-        }
-        res.status(200).json({ message: "Loan deleted successfully." });
+    };
+
+    const deleteLoan = () => {
+      return new Promise((resolve, reject) => {
+        const deleteLoanQuery = "DELETE FROM supplier_loan WHERE id = ?";
+        db.query(deleteLoanQuery, [id], (err, results) => {
+          if (err) {
+            console.error("Error deleting loan:", err);
+            return reject("Error deleting loan.");
+          }
+          if (results.affectedRows === 0) {
+            return reject("Loan not found.");
+          }
+          resolve();
+        });
       });
-    }
+    };
+
+    (async () => {
+      try {
+        await deleteFiles(filePaths); // Step 1: Delete all files
+        await deletePayments(); // Step 2: Delete related payments
+        await deleteLoan(); // Step 3: Delete the loan
+
+        res.status(200).json({
+          message:
+            "Loan, related payments, and all associated files deleted successfully.",
+        });
+      } catch (error) {
+        console.error("Error deleting loan and related records:", error);
+        res.status(500).json({ message: error });
+      }
+    })();
   });
 });
-
 
 
 
@@ -969,19 +1059,26 @@ router.get("/get_loans_by_date/:supplierId", (req, res) => {
 
 
 
-router.post('/add_supplier_loan_payment', async (req, res) => {
+//add supplier loan payment
+router.post("/add_supplier_loan_payment", upload.single("file"), async (req, res) => {
   const { generatedId, paymentAmount, referenceNumber } = req.body;
+  const filePath = req.file ? `/uploads/supplier_loan/${req.file.filename}` : null;
+
+  if (!generatedId || !paymentAmount || !referenceNumber) {
+    return res.status(400).json({ message: "Missing required fields." });
+  }
 
   try {
     const query = `
-      INSERT INTO supplier_loan_payment (generatedId, paymentAmount, referenceNumber)
-      VALUES (?, ?, ?)
+      INSERT INTO supplier_loan_payment (generatedId, paymentAmount, referenceNumber, filePath)
+      VALUES (?, ?, ?, ?)
     `;
-    await db.query(query, [generatedId, paymentAmount, referenceNumber]);
-    res.json({ message: 'Payment record added successfully.' });
+    await db.query(query, [generatedId, paymentAmount, referenceNumber, filePath]);
+
+    res.json({ message: "Payment record added successfully." });
   } catch (error) {
     console.error("Error adding supplier_loan_payment:", error);
-    res.status(500).json({ message: 'Failed to add payment record.' });
+    res.status(500).json({ message: "Failed to add payment record." });
   }
 });
 
@@ -1006,6 +1103,86 @@ router.put('/update_supplier_loan_new/:generatedId', async (req, res) => {
     res.status(500).json({ message: 'Failed to update loan.' });
   }
 });
+
+
+
+// Route to fetch payment history for a specific generatedId
+router.get("/get_loan_payment_history/:generatedId", (req, res) => {
+  const { generatedId } = req.params;
+
+  const query = `
+    SELECT id, paymentAmount, referenceNumber, saveTime, filePath
+    FROM supplier_loan_payment
+    WHERE generatedId = ?
+    ORDER BY saveTime DESC
+  `;
+
+  db.query(query, [generatedId], (err, results) => {
+    if (err) {
+      console.error("Error fetching payment history:", err);
+      return res.status(500).json({ message: "Error fetching payment history." });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({ message: "No payment history found for the specified ID." });
+    }
+
+    res.status(200).json(results);
+  });
+});
+
+
+
+router.delete("/delete_loan_with_related/:generatedId", async (req, res) => {
+  const { generatedId } = req.params;
+
+  if (!generatedId) {
+    return res.status(400).json({ message: "Missing required parameter: generatedId" });
+  }
+
+  let connection;
+
+  try {
+    // Get a connection from the pool
+    connection = await db.getConnection();
+
+    // Start a transaction
+    await connection.beginTransaction();
+
+    // Delete related records from `supplier_loan_payment`
+    await connection.query(
+      "DELETE FROM supplier_loan_payment WHERE generatedId = ?",
+      [generatedId]
+    );
+
+    // Delete the record from `supplier_loan`
+    await connection.query(
+      "DELETE FROM supplier_loan WHERE generatedId = ?",
+      [generatedId]
+    );
+
+    // Commit the transaction
+    await connection.commit();
+
+    res.status(200).json({ message: "Records deleted successfully." });
+  } catch (error) {
+    console.error("Error deleting records:", error);
+
+    // Rollback the transaction in case of error
+    if (connection) {
+      await connection.rollback();
+    }
+
+    res.status(500).json({ message: "Failed to delete records." });
+  } finally {
+    // Release the connection
+    if (connection) {
+      connection.release();
+    }
+  }
+});
+
+module.exports = router;
 
 
 
