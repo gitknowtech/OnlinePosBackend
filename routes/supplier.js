@@ -158,26 +158,20 @@ const createSupplierLoanPaymentTable = () => {
     generatedId VARCHAR(255) NOT NULL,
     paymentAmount DECIMAL(10, 2) NOT NULL,
     referenceNumber VARCHAR(255) NOT NULL,
-    filePath VARCHAR(500),
     saveTime DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    paymentType ENUM('Direct', 'Cheque') NOT NULL DEFAULT 'Direct', -- Added column for payment type
-    chequeDate DATE DEFAULT NULL, -- Added column for cheque date
     FOREIGN KEY (generatedId) REFERENCES supplier_loan(generatedId)
-  );
+);
+
   `;
 
   db.query(createTableQuery, (err) => {
     if (err) {
-      console.error("Error creating supplier_loan_payment table:", err);
+      console.error("Error creating supplier_loan table:", err);
     } else {
       console.log("supplier_loan_payment table created or already exists.");
     }
   });
 };
-
-// Call the function to ensure the table exists
-createSupplierLoanPaymentTable();
-
 
 
 
@@ -775,8 +769,7 @@ router.post("/add_loan", upload.single("file"), (req, res) => {
   const { supId, supName, loanAmount, billNumber, description, cashAmount } = req.body;
   const filePath = req.file ? req.file.path : null; // Save absolute path
 
-  // Validation: Allow loanAmount = 0 but reject undefined or null
-  if (!supId || !supName || loanAmount === undefined || loanAmount === null || !billNumber) {
+  if (!supId || !supName || !loanAmount || !billNumber) {
     return res.status(400).json({ message: "Missing required fields." });
   }
 
@@ -816,41 +809,14 @@ router.get("/view_file", (req, res) => {
     return res.status(400).json({ message: "File path is required." });
   }
 
-  const absolutePath = path.resolve(filePath); // Resolve the path to an absolute path
-
-  fs.access(absolutePath, fs.constants.F_OK, (err) => {
+  // Serve file from absolute path
+  fs.access(filePath, fs.constants.F_OK, (err) => {
     if (err) {
       console.error("Error accessing file:", err);
       return res.status(404).json({ message: "File not found." });
     }
 
-    res.sendFile(absolutePath, (sendErr) => {
-      if (sendErr) {
-        console.error("Error sending file:", sendErr);
-        return res.status(500).json({ message: "Error serving file." });
-      }
-    });
-  });
-});
-
-
-router.get("/view_file_new", (req, res) => {
-  const filePath = req.query.filePath;
-
-  if (!filePath) {
-    return res.status(400).json({ message: "File path is required." });
-  }
-
-  // Resolve path to the uploads directory
-  const absolutePath = path.join(__dirname, "../", filePath);
-
-  fs.access(absolutePath, fs.constants.F_OK, (err) => {
-    if (err) {
-      console.error("Error accessing file:", err);
-      return res.status(404).json({ message: "File not found." });
-    }
-
-    res.sendFile(absolutePath, (sendErr) => {
+    res.sendFile(filePath, (sendErr) => {
       if (sendErr) {
         console.error("Error sending file:", sendErr);
         return res.status(500).json({ message: "Error serving file." });
@@ -888,7 +854,7 @@ router.put("/update_supplier_loan/:id", (req, res) => {
 
 
 
-// Delete Supplier Loan and Associated File
+
 // DELETE: Remove Supplier Loan if no related payments exist
 router.delete("/delete_supplier_loan/:id", (req, res) => {
   const { id } = req.params;
@@ -997,6 +963,7 @@ router.delete("/delete_supplier_loan/:id", (req, res) => {
 
 
 
+
 // Get Supplier Loans
 router.get("/get_loans_supplier_loan/:supplierId", (req, res) => {
   const { supplierId } = req.params;
@@ -1065,43 +1032,54 @@ router.get("/get_loans_by_date/:supplierId", (req, res) => {
 
 
 
-
-//add supplier loan payment
 router.post("/add_supplier_loan_payment", upload.single("file"), async (req, res) => {
-  const { generatedId, paymentAmount, referenceNumber, paymentType, chequeDate } = req.body;
+  const { generatedId, paymentAmount, referenceNumber } = req.body;
   const filePath = req.file ? `/uploads/supplier_loan/${req.file.filename}` : null;
 
-  if (!generatedId || !paymentAmount || !referenceNumber || !paymentType) {
+  if (!generatedId || !paymentAmount || !referenceNumber) {
     return res.status(400).json({ message: "Missing required fields." });
-  }
-
-  if (!["Direct", "Cheque"].includes(paymentType)) {
-    return res.status(400).json({ message: "Invalid payment type." });
   }
 
   try {
     const query = `
-      INSERT INTO supplier_loan_payment (generatedId, paymentAmount, referenceNumber, filePath, paymentType, chequeDate)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO supplier_loan_payment (generatedId, paymentAmount, referenceNumber, filePath)
+      VALUES (?, ?, ?, ?)
     `;
     await db.query(query, [
       generatedId,
       paymentAmount,
       referenceNumber,
       filePath,
-      paymentType,
-      chequeDate || null,
     ]);
 
-    res.json({ message: "Payment record added successfully." });
+    res.json({ message: "Payment record added successfully." }); // Always return JSON
   } catch (error) {
     console.error("Error adding supplier_loan_payment:", error);
-    res.status(500).json({ message: "Failed to add payment record." });
+    res.status(500).json({ message: "Failed to add payment record." }); // Always return JSON even for errors
   }
 });
 
 
+router.put('/update_supplier_loan_new/:generatedId', async (req, res) => {
+  const { generatedId } = req.params;
+  const { loanAmount, cashAmount } = req.body; // Receive both values
 
+  try {
+    const query = `
+      UPDATE supplier_loan
+      SET loanAmount = ?, cashAmount = ?
+      WHERE generatedId = ?
+    `;
+
+    // Update loanAmount and cashAmount
+    await db.query(query, [loanAmount, cashAmount, generatedId]);
+
+    res.json({ message: 'Loan updated successfully.' });
+  } catch (error) {
+    console.error("Error updating supplier_loan:", error);
+    res.status(500).json({ message: 'Failed to update loan.' });
+  }
+});
 
 
 // Route to fetch payment history for a specific generatedId
@@ -1128,60 +1106,6 @@ router.get("/get_loan_payment_history/:generatedId", (req, res) => {
     res.status(200).json(results);
   });
 });
-
-
-
-router.delete("/delete_loan_with_related/:generatedId", async (req, res) => {
-  const { generatedId } = req.params;
-
-  if (!generatedId) {
-    return res.status(400).json({ message: "Missing required parameter: generatedId" });
-  }
-
-  let connection;
-
-  try {
-    // Get a connection from the pool
-    connection = await db.getConnection();
-
-    // Start a transaction
-    await connection.beginTransaction();
-
-    // Delete related records from `supplier_loan_payment`
-    await connection.query(
-      "DELETE FROM supplier_loan_payment WHERE generatedId = ?",
-      [generatedId]
-    );
-
-    // Delete the record from `supplier_loan`
-    await connection.query(
-      "DELETE FROM supplier_loan WHERE generatedId = ?",
-      [generatedId]
-    );
-
-    // Commit the transaction
-    await connection.commit();
-
-    res.status(200).json({ message: "Records deleted successfully." });
-  } catch (error) {
-    console.error("Error deleting records:", error);
-
-    // Rollback the transaction in case of error
-    if (connection) {
-      await connection.rollback();
-    }
-
-    res.status(500).json({ message: "Failed to delete records." });
-  } finally {
-    // Release the connection
-    if (connection) {
-      connection.release();
-    }
-  }
-});
-
-
-
 
 // DELETE: Remove payment and update supplier_loan
 router.delete("/delete_supplier_payment/:paymentId", (req, res) => {
@@ -1250,7 +1174,6 @@ router.delete("/delete_supplier_payment/:paymentId", (req, res) => {
     });
   });
 });
-
 
 // Export Router
 module.exports = router;

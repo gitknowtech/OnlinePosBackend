@@ -3,6 +3,8 @@ const db = require("../db"); // Your database connection
 const router = express.Router();
 const moment = require("moment");
 
+
+
 // Create `sales` table if it doesn't exist
 const createSalesTable = () => {
   const createTableQuery = `
@@ -31,6 +33,9 @@ const createSalesTable = () => {
     }
   });
 };
+
+
+
 
 const createInvoicesTable = () => {
   const createTableQuery = `
@@ -295,6 +300,29 @@ router.get("/fetch_sales", (req, res) => {
 });
 
 
+// Route to fetch all sales records with PaymentType = 'creditPayment'
+// Route to fetch all sales records where PaymentType is "Credit Payment" and matches the Store
+router.get("/fetch_sales_new", (req, res) => {
+  const { Store } = req.query;
+
+  if (!Store) {
+    return res.status(400).json({ message: "Store parameter is required" });
+  }
+
+  const fetchQuery = "SELECT * FROM sales WHERE PaymentType = 'Credit Payment' AND Store = ?";
+  db.query(fetchQuery, [Store], (err, results) => {
+    if (err) {
+      console.error("Error fetching sales records:", err.message, err.stack);
+      return res
+        .status(500)
+        .json({ message: "Error fetching sales records", error: err.message });
+    }
+    res.status(200).json(results);
+  });
+});
+
+
+
 
 // Route to fetch all invoice items for a specific invoice
 router.get("/fetch_invoice_items/:invoiceId", (req, res) => {
@@ -408,6 +436,43 @@ router.get("/fetch_sales_sales", (req, res) => {
     console.log("Fetched sales in descending order:", results); // Log the results
     res.status(200).json(results); // Return results as JSON
   });
+});
+
+
+router.get("/fetch_customer_payment_details/:customerId", async (req, res) => {
+  const { customerId } = req.params;
+  const { invoiceId } = req.query;
+
+  try {
+    const customerQuery = `
+      SELECT cusName FROM customers WHERE cusId = ? LIMIT 1
+    `;
+    const [customer] = await db.query(customerQuery, [customerId]);
+
+    if (!customer) {
+      return res.status(404).json({ message: "Customer not found." });
+    }
+
+    const paymentQuery = `
+      SELECT CashPay AS cashPayment, CardPay AS cardPayment, PaymentType AS paymentType, Balance AS balanceAmount
+      FROM sales
+      WHERE CustomerId = ? AND invoiceId = ?
+      LIMIT 1
+    `;
+    const [payment] = await db.query(paymentQuery, [customerId, invoiceId]);
+
+    if (!payment) {
+      return res.status(404).json({ message: "Payment details not found." });
+    }
+
+    res.json({
+      customerName: customer.cusName,
+      ...payment,
+    });
+  } catch (error) {
+    console.error("Error fetching customer payment details:", error);
+    res.status(500).json({ message: "Failed to fetch payment details." });
+  }
 });
 
 

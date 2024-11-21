@@ -19,7 +19,6 @@ const invoiceRouter = require('./routes/invoice')
 const expensesRouter = require('./routes/expenses')
 const customerRouter = require('./routes/customer')
 const supplierPurchaseRouter = require('./routes/purchases')
-const SupplierLoanRouter = require('./routes/supplier_loan')
 
 const app = express();
 app.use(cors());
@@ -41,7 +40,6 @@ app.use('/api/invoices', invoiceRouter)
 app.use('/api/expenses', expensesRouter)
 app.use('/api/customer', customerRouter)
 app.use('/api/purchases', supplierPurchaseRouter)
-app.use('./api/supplierLoans', SupplierLoanRouter)
 
 
 
@@ -386,18 +384,36 @@ app.get('/check-duplicate', (req, res) => {
 app.delete("/delete_user/:UserName", (req, res) => {
   const { UserName } = req.params;
 
-  const query = "DELETE FROM users WHERE UserName = ?";
-  db.query(query, [UserName], (err, result) => {
+  // First, check if there are any related entries in the invoices table
+  const checkInvoicesQuery = "SELECT COUNT(*) AS count FROM invoices WHERE UserName = ?";
+  db.query(checkInvoicesQuery, [UserName], (err, results) => {
     if (err) {
-      console.error("Error deleting user:", err);
-      return res.status(500).json({ message: "Failed to delete user." });
+      console.error("Error checking invoices:", err);
+      return res.status(500).json({ message: "Failed to check related invoices." });
     }
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: "User not found." });
+
+    if (results[0].count > 0) {
+      // If related invoices exist, do not delete the user
+      return res.status(400).json({ message: "Cannot delete this user because related invoice data exists in the system." });
     }
-    res.status(200).json({ message: "User deleted successfully." });
+
+    // If no related invoices, proceed to delete the user
+    const deleteUserQuery = "DELETE FROM users WHERE UserName = ?";
+    db.query(deleteUserQuery, [UserName], (deleteErr, result) => {
+      if (deleteErr) {
+        console.error("Error deleting user:", deleteErr);
+        return res.status(500).json({ message: "Failed to delete user." });
+      }
+
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ message: "User not found." });
+      }
+
+      res.status(200).json({ message: "User deleted successfully." });
+    });
   });
 });
+
 
 
 
