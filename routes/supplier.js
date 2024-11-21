@@ -160,19 +160,24 @@ const createSupplierLoanPaymentTable = () => {
     referenceNumber VARCHAR(255) NOT NULL,
     filePath VARCHAR(500),
     saveTime DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    paymentType ENUM('Direct', 'Cheque') NOT NULL DEFAULT 'Direct', -- Added column for payment type
+    chequeDate DATE DEFAULT NULL, -- Added column for cheque date
     FOREIGN KEY (generatedId) REFERENCES supplier_loan(generatedId)
-);
-
+  );
   `;
 
   db.query(createTableQuery, (err) => {
     if (err) {
-      console.error("Error creating supplier_loan table:", err);
+      console.error("Error creating supplier_loan_payment table:", err);
     } else {
       console.log("supplier_loan_payment table created or already exists.");
     }
   });
 };
+
+// Call the function to ensure the table exists
+createSupplierLoanPaymentTable();
+
 
 
 
@@ -882,8 +887,9 @@ router.put("/update_supplier_loan/:id", (req, res) => {
 
 
 
-// Delete Supplier Loan and Associated File
 
+// Delete Supplier Loan and Associated File
+// DELETE: Remove Supplier Loan if no related payments exist
 router.delete("/delete_supplier_loan/:id", (req, res) => {
   const { id } = req.params;
 
@@ -903,7 +909,7 @@ router.delete("/delete_supplier_loan/:id", (req, res) => {
       sl.id = ?
   `;
 
-  db.query(selectQuery, [id], (err, results) => {
+  db.query(selectQuery, [id], async (err, results) => {
     if (err) {
       console.error("Error fetching loan details:", err);
       return res.status(500).json({ message: "Error fetching loan details." });
@@ -913,78 +919,79 @@ router.delete("/delete_supplier_loan/:id", (req, res) => {
       return res.status(404).json({ message: "Loan not found." });
     }
 
-    // Collect unique file paths
-    const filePaths = [...new Set(results.map((row) => row.loanFilePath || row.paymentFilePath))]
-      .filter(Boolean); // Remove null or undefined file paths
+    // Check if any related payments exist
+    const generatedId = results[0]?.generatedId;
+    const paymentCheckQuery = "SELECT COUNT(*) AS paymentCount FROM supplier_loan_payment WHERE generatedId = ?";
 
-    const generatedId = results[0]?.generatedId; // Get the generatedId
+    db.query(paymentCheckQuery, [generatedId], async (checkErr, checkResults) => {
+      if (checkErr) {
+        console.error("Error checking related payments:", checkErr);
+        return res.status(500).json({ message: "Error checking related payments." });
+      }
 
-    const deleteFiles = async (paths) => {
-      for (const filePath of paths) {
-        const absolutePath = path.isAbsolute(filePath)
-          ? filePath // Use as-is if already absolute
-          : path.join(__dirname, "../", filePath); // Prepend base path if relative
-    
-        try {
-          await fs.promises.unlink(absolutePath);
-          console.log(`Deleted file: ${absolutePath}`);
-        } catch (error) {
-          if (error.code === "ENOENT") {
-            console.warn(`File not found, skipping: ${absolutePath}`);
-          } else if (error.code === "EPERM") {
-            console.error(`Permission denied for file: ${absolutePath}`);
-          } else {
-            console.error("Error deleting file:", error);
+      const paymentCount = checkResults[0]?.paymentCount || 0;
+
+      if (paymentCount > 0) {
+        return res.status(400).json({
+          message: "Cannot delete loan. Please delete payment history associated with this loan first.",
+        });
+      }
+
+      // Collect unique file paths
+      const filePaths = [...new Set(results.map((row) => row.loanFilePath || row.paymentFilePath))]
+        .filter(Boolean); // Remove null or undefined file paths
+
+      // Function to delete files
+      const deleteFiles = async (paths) => {
+        for (const filePath of paths) {
+          const absolutePath = path.isAbsolute(filePath)
+            ? filePath // Use as-is if already absolute
+            : path.join(__dirname, "../", filePath); // Prepend base path if relative
+
+          try {
+            await fs.promises.unlink(absolutePath);
+            console.log(`Deleted file: ${absolutePath}`);
+          } catch (error) {
+            if (error.code === "ENOENT") {
+              console.warn(`File not found, skipping: ${absolutePath}`);
+            } else if (error.code === "EPERM") {
+              console.error(`Permission denied for file: ${absolutePath}`);
+            } else {
+              console.error("Error deleting file:", error);
+            }
           }
         }
-      }
-    };
-    
+      };
 
-    const deletePayments = () => {
-      return new Promise((resolve, reject) => {
-        const deletePaymentQuery = "DELETE FROM supplier_loan_payment WHERE generatedId = ?";
-        db.query(deletePaymentQuery, [generatedId], (err, results) => {
-          if (err) {
-            console.error("Error deleting related payments:", err);
-            return reject("Error deleting related payments.");
-          }
-          resolve();
+      // Function to delete loan record
+      const deleteLoan = () => {
+        return new Promise((resolve, reject) => {
+          const deleteLoanQuery = "DELETE FROM supplier_loan WHERE id = ?";
+          db.query(deleteLoanQuery, [id], (deleteErr, deleteResults) => {
+            if (deleteErr) {
+              console.error("Error deleting loan:", deleteErr);
+              return reject("Error deleting loan.");
+            }
+            if (deleteResults.affectedRows === 0) {
+              return reject("Loan not found.");
+            }
+            resolve();
+          });
         });
-      });
-    };
+      };
 
-    const deleteLoan = () => {
-      return new Promise((resolve, reject) => {
-        const deleteLoanQuery = "DELETE FROM supplier_loan WHERE id = ?";
-        db.query(deleteLoanQuery, [id], (err, results) => {
-          if (err) {
-            console.error("Error deleting loan:", err);
-            return reject("Error deleting loan.");
-          }
-          if (results.affectedRows === 0) {
-            return reject("Loan not found.");
-          }
-          resolve();
-        });
-      });
-    };
-
-    (async () => {
       try {
         await deleteFiles(filePaths); // Step 1: Delete all files
-        await deletePayments(); // Step 2: Delete related payments
-        await deleteLoan(); // Step 3: Delete the loan
+        await deleteLoan(); // Step 2: Delete the loan
 
         res.status(200).json({
-          message:
-            "Loan, related payments, and all associated files deleted successfully.",
+          message: "Loan and associated files deleted successfully.",
         });
       } catch (error) {
         console.error("Error deleting loan and related records:", error);
         res.status(500).json({ message: error });
       }
-    })();
+    });
   });
 });
 
@@ -1061,19 +1068,30 @@ router.get("/get_loans_by_date/:supplierId", (req, res) => {
 
 //add supplier loan payment
 router.post("/add_supplier_loan_payment", upload.single("file"), async (req, res) => {
-  const { generatedId, paymentAmount, referenceNumber } = req.body;
+  const { generatedId, paymentAmount, referenceNumber, paymentType, chequeDate } = req.body;
   const filePath = req.file ? `/uploads/supplier_loan/${req.file.filename}` : null;
 
-  if (!generatedId || !paymentAmount || !referenceNumber) {
+  if (!generatedId || !paymentAmount || !referenceNumber || !paymentType) {
     return res.status(400).json({ message: "Missing required fields." });
+  }
+
+  if (!["Direct", "Cheque"].includes(paymentType)) {
+    return res.status(400).json({ message: "Invalid payment type." });
   }
 
   try {
     const query = `
-      INSERT INTO supplier_loan_payment (generatedId, paymentAmount, referenceNumber, filePath)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO supplier_loan_payment (generatedId, paymentAmount, referenceNumber, filePath, paymentType, chequeDate)
+      VALUES (?, ?, ?, ?, ?, ?)
     `;
-    await db.query(query, [generatedId, paymentAmount, referenceNumber, filePath]);
+    await db.query(query, [
+      generatedId,
+      paymentAmount,
+      referenceNumber,
+      filePath,
+      paymentType,
+      chequeDate || null,
+    ]);
 
     res.json({ message: "Payment record added successfully." });
   } catch (error) {
@@ -1083,26 +1101,6 @@ router.post("/add_supplier_loan_payment", upload.single("file"), async (req, res
 });
 
 
-router.put('/update_supplier_loan_new/:generatedId', async (req, res) => {
-  const { generatedId } = req.params;
-  const { loanAmount, cashAmount } = req.body; // Receive both values
-
-  try {
-    const query = `
-      UPDATE supplier_loan
-      SET loanAmount = ?, cashAmount = ?
-      WHERE generatedId = ?
-    `;
-
-    // Update loanAmount and cashAmount
-    await db.query(query, [loanAmount, cashAmount, generatedId]);
-
-    res.json({ message: 'Loan updated successfully.' });
-  } catch (error) {
-    console.error("Error updating supplier_loan:", error);
-    res.status(500).json({ message: 'Failed to update loan.' });
-  }
-});
 
 
 
@@ -1182,9 +1180,76 @@ router.delete("/delete_loan_with_related/:generatedId", async (req, res) => {
   }
 });
 
-module.exports = router;
 
 
+
+// DELETE: Remove payment and update supplier_loan
+router.delete("/delete_supplier_payment/:paymentId", (req, res) => {
+  const { paymentId } = req.params;
+
+  const selectQuery = "SELECT filePath, generatedId FROM supplier_loan_payment WHERE id = ?";
+  const deleteQuery = "DELETE FROM supplier_loan_payment WHERE id = ?";
+  const updateLoanQuery = `
+    UPDATE supplier_loan 
+    SET loanAmount = loanAmount + ?, cashAmount = cashAmount - ?
+    WHERE generatedId = ?
+  `;
+
+  db.query(selectQuery, [paymentId], async (selectErr, selectResults) => {
+    if (selectErr) {
+      console.error("Error fetching payment details:", selectErr);
+      return res.status(500).json({ message: "Error fetching payment details." });
+    }
+
+    if (selectResults.length === 0) {
+      return res.status(404).json({ message: "Payment not found." });
+    }
+
+    const { filePath, generatedId } = selectResults[0];
+    console.log("File path to delete:", filePath);
+    console.log("Generated ID:", generatedId);
+
+    // Attempt to delete the file if filePath exists
+    if (filePath) {
+      const absolutePath = path.isAbsolute(filePath)
+        ? filePath
+        : path.join(__dirname, "../", filePath);
+
+      console.log("Attempting to delete file at:", absolutePath);
+
+      try {
+        await fs.promises.unlink(absolutePath);
+        console.log("File deleted successfully:", absolutePath);
+      } catch (fileErr) {
+        if (fileErr.code === "ENOENT") {
+          console.warn(`File not found, skipping deletion: ${absolutePath}`);
+        } else {
+          console.error("Error deleting file:", fileErr);
+        }
+      }
+    }
+
+    // Delete the payment record
+    db.query(deleteQuery, [paymentId], (deleteErr) => {
+      if (deleteErr) {
+        console.error("Error deleting payment record:", deleteErr);
+        return res.status(500).json({ message: "Error deleting payment record." });
+      }
+
+      // Update supplier_loan table
+      const paymentAmount = parseFloat(req.body.paymentAmount || 0); // Ensure paymentAmount is a valid number
+      db.query(updateLoanQuery, [paymentAmount, paymentAmount, generatedId], (updateErr) => {
+        if (updateErr) {
+          console.error("Error updating supplier_loan table:", updateErr);
+          return res.status(500).json({ message: "Error updating loan details." });
+        }
+
+        console.log("Loan updated successfully for generatedId:", generatedId);
+        res.status(200).json({ message: "Payment and related file deleted successfully." });
+      });
+    });
+  });
+});
 
 
 // Export Router
