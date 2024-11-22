@@ -33,8 +33,36 @@ const createCustomerTable = () => {
   });
 };
 
+
+// Function to create the banksupplier table
+const createCustomerLoanPaymentTable = () => {
+  const createTableQuery = `
+   CREATE TABLE IF NOT EXISTS customer_loan_payment (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    customerId VARCHAR(255) NOT NULL,
+    invoiceId VARCHAR(255) NOT NULL,
+    cashPayment DECIMAL(10, 2) NOT NULL,
+    cardPayment DECIMAL(10, 2) NOT NULL,
+    totalPayment DECIMAL(10, 2) NOT NULL,
+    saveTime DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (invoiceId) REFERENCES sales(invoiceId)
+);
+
+  `;
+
+  db.query(createTableQuery, (err) => {
+    if (err) {
+      console.error("Error creating supplier_loan table:", err);
+    } else {
+      console.log("supplier_loan_payment table created or already exists.");
+    }
+  });
+};
+
+
 // Call the function to create the table on server start
 createCustomerTable();
+createCustomerLoanPaymentTable(); 
 
 
 
@@ -209,6 +237,68 @@ router.get('/customers', (req, res) => {
   });
 });
 
+
+
+router.put("/update_sale/:invoiceId", async (req, res) => {
+  const { invoiceId } = req.params;
+  const { CashPay, CardPay, Balance, customerId } = req.body;
+
+  try {
+    // Fetch the current amounts
+    const fetchQuery = `
+      SELECT CashPay, CardPay 
+      FROM sales 
+      WHERE invoiceId = ?
+    `;
+    const [rows] = await db.query(fetchQuery, [invoiceId]); // Adjusted for MySQL2
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "Invoice not found" });
+    }
+
+    const currentData = rows[0];
+    const { CashPay: currentCash, CardPay: currentCard } = currentData;
+
+    // Calculate the incremental amounts
+    const cashIncrement = parseFloat(CashPay) - parseFloat(currentCash);
+    const cardIncrement = parseFloat(CardPay) - parseFloat(currentCard);
+    const totalIncrement = cashIncrement + cardIncrement;
+
+    // Insert the incremental amounts into customer_loan_payment table
+    const insertPaymentQuery = `
+      INSERT INTO customer_loan_payment (customerId, invoiceId, cashPayment, cardPayment, totalPayment)
+      VALUES (?, ?, ?, ?, ?)
+    `;
+    await db.query(insertPaymentQuery, [
+      customerId,
+      invoiceId,
+      cashIncrement > 0 ? cashIncrement : 0,
+      cardIncrement > 0 ? cardIncrement : 0,
+      totalIncrement > 0 ? totalIncrement : 0,
+    ]);
+
+    // Update the sales table with the new amounts
+    const updateSalesQuery = `
+      UPDATE sales 
+      SET CashPay = ?, CardPay = ?, Balance = ?
+      WHERE invoiceId = ?
+    `;
+    const result = await db.query(updateSalesQuery, [
+      CashPay,
+      CardPay,
+      Balance,
+      invoiceId,
+    ]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Invoice not found" });
+    }
+
+    res.status(200).json({ message: "Sale updated successfully" });
+  } catch (error) {
+    console.error("Error updating sale:", error);
+    res.status(500).json({ message: "Failed to update sale", error: error.message });
+  }
+});
 
 
 
