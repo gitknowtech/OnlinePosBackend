@@ -1,6 +1,10 @@
 const express = require('express');
 const db = require('../db'); // Your database connection
 const router = express.Router();
+// Promisify db.query if using mysql without promise support
+const util = require('util');
+db.query = util.promisify(db.query);
+
 
 // Create `Customer` table if it doesn't exist
 const createCustomerTable = () => {
@@ -37,24 +41,23 @@ const createCustomerTable = () => {
 // Function to create the banksupplier table
 const createCustomerLoanPaymentTable = () => {
   const createTableQuery = `
-   CREATE TABLE IF NOT EXISTS customer_loan_payment (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    customerId VARCHAR(255) NOT NULL,
-    invoiceId VARCHAR(255) NOT NULL,
-    cashPayment DECIMAL(10, 2) NOT NULL,
-    cardPayment DECIMAL(10, 2) NOT NULL,
-    totalPayment DECIMAL(10, 2) NOT NULL,
-    saveTime DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (invoiceId) REFERENCES sales(invoiceId)
-);
-
+    CREATE TABLE IF NOT EXISTS customer_loan_payment (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      customerId VARCHAR(255) NOT NULL,
+      invoiceId VARCHAR(255) NOT NULL,
+      cashPayment DECIMAL(10, 2) NOT NULL,
+      cardPayment DECIMAL(10, 2) NOT NULL,
+      totalPayment DECIMAL(10, 2) NOT NULL,
+      saveTime DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (invoiceId) REFERENCES sales(invoiceId)
+    );
   `;
 
   db.query(createTableQuery, (err) => {
     if (err) {
-      console.error("Error creating supplier_loan table:", err);
+      console.error("Error creating customer_loan_payment table:", err);
     } else {
-      console.log("supplier_loan_payment table created or already exists.");
+      console.log("customer_loan_payment table created or already exists.");
     }
   });
 };
@@ -239,31 +242,60 @@ router.get('/customers', (req, res) => {
 
 
 
+
+
+
 router.put("/update_sale/:invoiceId", async (req, res) => {
   const { invoiceId } = req.params;
   const { CashPay, CardPay, Balance, customerId } = req.body;
 
   try {
-    // Fetch the current amounts
+    // Validate input data
+    if (
+      CashPay === undefined || CashPay === null || isNaN(CashPay) ||
+      CardPay === undefined || CardPay === null || isNaN(CardPay) ||
+      Balance === undefined || Balance === null || isNaN(Balance) ||
+      !customerId
+    ) {
+      return res.status(400).json({ message: "Invalid input data" });
+    }
+
+    // Fetch the current amounts from the sales table
     const fetchQuery = `
       SELECT CashPay, CardPay 
       FROM sales 
       WHERE invoiceId = ?
     `;
-    const [rows] = await db.query(fetchQuery, [invoiceId]); // Adjusted for MySQL2
-    if (rows.length === 0) {
+
+    const rows = await db.query(fetchQuery, [invoiceId]);
+
+    // Check if the invoice exists
+    if (!rows || rows.length === 0) {
       return res.status(404).json({ message: "Invoice not found" });
     }
 
     const currentData = rows[0];
-    const { CashPay: currentCash, CardPay: currentCard } = currentData;
+    const currentCash = parseFloat(currentData.CashPay) || 0;
+    const currentCard = parseFloat(currentData.CardPay) || 0;
 
-    // Calculate the incremental amounts
-    const cashIncrement = parseFloat(CashPay) - parseFloat(currentCash);
-    const cardIncrement = parseFloat(CardPay) - parseFloat(currentCard);
+    // Parse incoming amounts
+    const newCashPay = parseFloat(CashPay) || 0;
+    const newCardPay = parseFloat(CardPay) || 0;
+    const newBalance = parseFloat(Balance) || 0;
+
+    // Calculate incremental amounts
+    const cashIncrement = newCashPay - currentCash;
+    const cardIncrement = newCardPay - currentCard;
     const totalIncrement = cashIncrement + cardIncrement;
 
-    // Insert the incremental amounts into customer_loan_payment table
+    // Validate increments
+    if (cashIncrement < 0 || cardIncrement < 0) {
+      return res.status(400).json({
+        message: "Invalid input: CashPay and CardPay cannot decrease.",
+      });
+    }
+
+    // Insert the incremental amounts into the customer_loan_payment table
     const insertPaymentQuery = `
       INSERT INTO customer_loan_payment (customerId, invoiceId, cashPayment, cardPayment, totalPayment)
       VALUES (?, ?, ?, ?, ?)
@@ -276,21 +308,22 @@ router.put("/update_sale/:invoiceId", async (req, res) => {
       totalIncrement > 0 ? totalIncrement : 0,
     ]);
 
-    // Update the sales table with the new amounts
+    // Update the sales table with the new values
     const updateSalesQuery = `
       UPDATE sales 
       SET CashPay = ?, CardPay = ?, Balance = ?
       WHERE invoiceId = ?
     `;
-    const result = await db.query(updateSalesQuery, [
-      CashPay,
-      CardPay,
-      Balance,
+    const updateResult = await db.query(updateSalesQuery, [
+      newCashPay,
+      newCardPay,
+      newBalance,
       invoiceId,
     ]);
 
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: "Invoice not found" });
+    // Check if the update was successful
+    if (updateResult.affectedRows === 0) {
+      return res.status(404).json({ message: "Invoice not found during update" });
     }
 
     res.status(200).json({ message: "Sale updated successfully" });
@@ -299,6 +332,30 @@ router.put("/update_sale/:invoiceId", async (req, res) => {
     res.status(500).json({ message: "Failed to update sale", error: error.message });
   }
 });
+
+
+
+
+router.get("/payment_history/:invoiceId", async (req, res) => {
+  const { invoiceId } = req.params;
+
+  try {
+    const query = `
+      SELECT * FROM customer_loan_payment
+      WHERE invoiceId = ?
+      ORDER BY saveTime DESC
+    `;
+    const payments = await db.query(query, [invoiceId]);
+
+    res.status(200).json(payments);
+  } catch (error) {
+    console.error("Error fetching payment history:", error);
+    res.status(500).json({ message: "Failed to fetch payment history" });
+  }
+});
+
+
+
 
 
 
