@@ -241,75 +241,7 @@ router.get('/customers', (req, res) => {
 });
 
 
-router.put("/update_sale/:invoiceId", async (req, res) => {
-  const { invoiceId } = req.params;
-  const { CashPay, CardPay, Balance, customerId } = req.body;
 
-  try {
-    // Validate input data
-    if (
-      CashPay === undefined || isNaN(CashPay) ||
-      CardPay === undefined || isNaN(CardPay) ||
-      Balance === undefined || isNaN(Balance) ||
-      !customerId
-    ) {
-      return res.status(400).json({ message: "Invalid input data" });
-    }
-
-    // Fetch current sales details
-    const fetchQuery = `
-      SELECT CashPay, CardPay, Balance, PaymentType 
-      FROM sales 
-      WHERE invoiceId = ?
-    `;
-    const [currentData] = await db.query(fetchQuery, [invoiceId]);
-
-    if (!currentData) {
-      return res.status(404).json({ message: "Invoice not found" });
-    }
-
-    const currentBalance = parseFloat(currentData.Balance) || 0;
-
-    // Determine new PaymentType only if Balance is 0
-    let paymentType = currentData.PaymentType; // Default to existing PaymentType
-    if (parseFloat(Balance) === 0) {
-      if (CashPay > 0 && CardPay > 0) {
-        paymentType = "Cash and Card Payment";
-      } else if (CashPay > 0) {
-        paymentType = "Cash Payment";
-      } else if (CardPay > 0) {
-        paymentType = "Card Payment";
-      } else {
-        paymentType = "Unknown"; // If no valid payment
-      }
-    }
-
-    // Update the sales record
-    const updateQuery = `
-      UPDATE sales 
-      SET CashPay = ?, CardPay = ?, Balance = ? 
-      ${parseFloat(Balance) === 0 ? ", PaymentType = ?" : ""} 
-      WHERE invoiceId = ?
-    `;
-    const updateParams = parseFloat(Balance) === 0
-      ? [CashPay, CardPay, Balance, paymentType, invoiceId]
-      : [CashPay, CardPay, Balance, invoiceId];
-
-    const updateResult = await db.query(updateQuery, updateParams);
-
-    if (updateResult.affectedRows === 0) {
-      return res.status(404).json({ message: "Update failed, invoice not found" });
-    }
-
-    res.status(200).json({ message: "Sale updated successfully" });
-  } catch (error) {
-    console.error("Error updating sale:", error);
-    res.status(500).json({ message: "Failed to update sale", error: error.message });
-  }
-});
-
-
-/*
 router.put("/update_sale/:invoiceId", async (req, res) => {
   const { invoiceId } = req.params;
   const { CashPay, CardPay, Balance, customerId } = req.body;
@@ -320,15 +252,15 @@ router.put("/update_sale/:invoiceId", async (req, res) => {
       CashPay === undefined || CashPay === null || isNaN(CashPay) ||
       CardPay === undefined || CardPay === null || isNaN(CardPay) ||
       Balance === undefined || Balance === null || isNaN(Balance) ||
-      //!customerId
+      !customerId
     ) {
       return res.status(400).json({ message: "Invalid input data" });
     }
 
     // Fetch the current amounts from the sales table
     const fetchQuery = `
-      SELECT CashPay, CardPay 
-      FROM sales 
+      SELECT CashPay, CardPay, PaymentType
+      FROM sales
       WHERE invoiceId = ?
     `;
 
@@ -349,13 +281,22 @@ router.put("/update_sale/:invoiceId", async (req, res) => {
     const newBalance = parseFloat(Balance) || 0;
 
     // Determine the PaymentType
-    let paymentType = "Unknown";
-    if (newCashPay > 0 && newCardPay > 0) {
-      paymentType = "Cash and Card Payment";
-    } else if (newCashPay > 0) {
-      paymentType = "Cash Payment";
-    } else if (newCardPay > 0) {
-      paymentType = "Card Payment";
+    let paymentType = currentData.PaymentType; // Default to existing PaymentType
+    if (newBalance === 0) {
+      if (newCashPay > 0 && newCardPay > 0) {
+        paymentType = "Cash and Card Payment";
+      } else if (newCashPay > 0) {
+        paymentType = "Cash Payment";
+      } else if (newCardPay > 0) {
+        paymentType = "Card Payment";
+      } else {
+        paymentType = "Unknown"; // Default if no payments exist
+      }
+    }
+
+    // Ensure PaymentType is not NULL
+    if (!paymentType) {
+      paymentType = "Unknown";
     }
 
     // Calculate incremental amounts
@@ -409,7 +350,7 @@ router.put("/update_sale/:invoiceId", async (req, res) => {
   }
 });
 
-*/
+
 
 
 router.get("/payment_history/:invoiceId", async (req, res) => {
@@ -431,8 +372,6 @@ router.get("/payment_history/:invoiceId", async (req, res) => {
 });
 
 
-
-/*
 router.delete("/delete_payment/:paymentId", async (req, res) => {
   const { paymentId } = req.params;
 
@@ -472,11 +411,9 @@ router.delete("/delete_payment/:paymentId", async (req, res) => {
     const updatedCardPay = currentCardPay - (parseFloat(cardPayment) || 0);
     const updatedBalance = currentBalance - (parseFloat(totalPayment) || 0);
 
-    // Determine if PaymentType should be updated
+    // Determine new PaymentType ONLY if Balance is zero
     let newPaymentType = sale.PaymentType; // Default to existing PaymentType
-
     if (updatedBalance === 0) {
-      // Only update PaymentType if balance is 0
       if (updatedCashPay > 0 && updatedCardPay > 0) {
         newPaymentType = "Cash and Card Payment";
       } else if (updatedCashPay > 0) {
@@ -484,14 +421,14 @@ router.delete("/delete_payment/:paymentId", async (req, res) => {
       } else if (updatedCardPay > 0) {
         newPaymentType = "Card Payment";
       } else {
-        newPaymentType = "Unknown"; // Default case if no payments exist
+        newPaymentType = "Unknown"; // Default case
       }
     }
 
     // Update the sales table
     const updateSalesQuery = `
       UPDATE sales 
-      SET CashPay = ?, CardPay = ?, Balance = ?
+      SET CashPay = ?, CardPay = ?, Balance = ? 
       ${updatedBalance === 0 ? ", PaymentType = ?" : ""} 
       WHERE invoiceId = ?
     `;
@@ -501,94 +438,7 @@ router.delete("/delete_payment/:paymentId", async (req, res) => {
 
     await db.query(updateSalesQuery, updateParams);
 
-    // Delete the payment record from the customer_loan_payment table
-    const deletePaymentQuery = `
-      DELETE FROM customer_loan_payment 
-      WHERE id = ?
-    `;
-    await db.query(deletePaymentQuery, [paymentId]);
-
-    res.status(200).json({
-      message: "Payment deleted and sales updated successfully",
-    });
-  } catch (error) {
-    console.error("Error deleting payment:", error);
-    res.status(500).json({
-      message: "Failed to delete payment",
-      error: error.message,
-    });
-  }
-});*/
-
-
-
-router.delete("/delete_payment/:paymentId", async (req, res) => {
-  const { paymentId } = req.params;
-
-  try {
-    // Fetch the payment details
-    const fetchPaymentQuery = `
-      SELECT invoiceId, cashPayment, cardPayment, totalPayment 
-      FROM customer_loan_payment 
-      WHERE id = ?
-    `;
-    const [payment] = await db.query(fetchPaymentQuery, [paymentId]);
-
-    if (!payment) {
-      return res.status(404).json({ message: "Payment not found" });
-    }
-
-    const { invoiceId, cashPayment, cardPayment, totalPayment } = payment;
-
-    // Fetch current sales details
-    const fetchSalesQuery = `
-      SELECT CashPay, CardPay, Balance, PaymentType 
-      FROM sales 
-      WHERE invoiceId = ?
-    `;
-    const [sale] = await db.query(fetchSalesQuery, [invoiceId]);
-
-    if (!sale) {
-      return res.status(404).json({ message: "Invoice not found in sales table" });
-    }
-
-    const currentCashPay = parseFloat(sale.CashPay) || 0;
-    const currentCardPay = parseFloat(sale.CardPay) || 0;
-    const currentBalance = parseFloat(sale.Balance) || 0;
-
-    // Calculate updated values
-    const updatedCashPay = currentCashPay - (parseFloat(cashPayment) || 0);
-    const updatedCardPay = currentCardPay - (parseFloat(cardPayment) || 0);
-    const updatedBalance = currentBalance - (parseFloat(totalPayment) || 0);
-
-    // Determine new PaymentType only if Balance becomes 0
-    let newPaymentType = sale.PaymentType;
-    if (updatedBalance === 0) {
-      if (updatedCashPay > 0 && updatedCardPay > 0) {
-        newPaymentType = "Cash and Card Payment";
-      } else if (updatedCashPay > 0) {
-        newPaymentType = "Cash Payment";
-      } else if (updatedCardPay > 0) {
-        newPaymentType = "Card Payment";
-      } else {
-        newPaymentType = "Unknown";
-      }
-    }
-
-    // Update the sales record
-    const updateSalesQuery = `
-      UPDATE sales 
-      SET CashPay = ?, CardPay = ?, Balance = ?
-      ${updatedBalance === 0 ? ", PaymentType = ?" : ""} 
-      WHERE invoiceId = ?
-    `;
-    const updateParams = updatedBalance === 0
-      ? [updatedCashPay, updatedCardPay, updatedBalance, newPaymentType, invoiceId]
-      : [updatedCashPay, updatedCardPay, updatedBalance, invoiceId];
-
-    await db.query(updateSalesQuery, updateParams);
-
-    // Delete the payment record
+    // Delete the payment record from customer_loan_payment table
     const deletePaymentQuery = `
       DELETE FROM customer_loan_payment 
       WHERE id = ?
@@ -606,6 +456,7 @@ router.delete("/delete_payment/:paymentId", async (req, res) => {
     });
   }
 });
+
 
 
 
@@ -658,32 +509,46 @@ router.get("/fetch_loan_payments", async (req, res) => {
   const { invoiceId, startDate, endDate } = req.query;
 
   try {
+    // Base query
     let query = `
-      SELECT * FROM customer_loan_payment WHERE 1=1
+      SELECT invoiceId, cashPayment, cardPayment, totalPayment, saveTime
+      FROM customer_loan_payment
+      WHERE 1=1
     `;
     const params = [];
 
+    // Add condition for invoiceId
     if (invoiceId) {
       query += ` AND invoiceId = ?`;
       params.push(invoiceId);
     }
+
+    // Add condition for startDate
     if (startDate) {
       query += ` AND saveTime >= ?`;
       params.push(startDate);
     }
+
+    // Add condition for endDate
     if (endDate) {
       query += ` AND saveTime <= ?`;
       params.push(endDate);
     }
 
-    const results = await db.query(query, params);
-    res.status(200).json(results);
+    // Execute the query
+    const payments = await db.query(query, params);
+
+    // Return the result
+    if (payments.length > 0) {
+      res.status(200).json(payments);
+    } else {
+      res.status(404).json({ message: "No loan payment data found." });
+    }
   } catch (error) {
     console.error("Error fetching loan payments:", error.message);
-    res.status(500).json({ message: "Failed to fetch loan payments" });
+    res.status(500).json({ message: "Failed to fetch loan payment data." });
   }
 });
-
 
 
 
