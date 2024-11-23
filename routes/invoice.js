@@ -285,6 +285,210 @@ router.post("/add_sales", async (req, res) => {
 
 
 
+
+/*
+router.post("/add_sales", async (req, res) => {
+  const {
+    GrossTotal,
+    CustomerId,
+    discountPercent,
+    discountAmount,
+    netAmount,
+    CashPay,
+    CardPay,
+    PaymentType,
+    Balance,
+    invoiceItems, // Array of invoice items
+    user, // Add user
+    store, // Add store
+  } = req.body;
+
+  if (
+    !GrossTotal ||
+    !netAmount ||
+    !PaymentType ||
+    !Array.isArray(invoiceItems) ||
+    !user || // Ensure user is provided
+    !store || // Ensure store is provided
+    invoiceItems.length === 0
+  ) {
+    return res
+      .status(400)
+      .json({ message: "Missing required fields or invalid invoice items." });
+  }
+
+  try {
+    // Generate unique invoice ID
+    const invoiceId = await generateInvoiceId();
+    console.log(`Generated invoiceId: ${invoiceId}`);
+
+    // Prepare sales values
+    const salesValues = [
+      invoiceId,
+      GrossTotal,
+      CustomerId || "Unknown",
+      discountPercent || 0,
+      discountAmount || 0,
+      netAmount,
+      CashPay || 0,
+      CardPay || 0,
+      PaymentType,
+      Balance || 0,
+      user, // Include user
+      store, // Include store
+    ];
+
+    // Prepare invoice items values
+    const invoiceItemsValues = invoiceItems.map((item) => [
+      invoiceId,
+      item.name,
+      item.cost,
+      item.mrp,
+      item.discount,
+      item.rate,
+      item.quantity,
+      item.amount,
+      item.barcode, // Include barcode here
+      user, // Include UserName
+      store, // Include Store
+    ]);
+
+    console.log("Invoice Items Values:", invoiceItemsValues);
+
+    // Start transaction
+    db.beginTransaction((err) => {
+      if (err) {
+        console.error("Error starting transaction:", err.message, err.stack);
+        res.status(500).json({ message: "Failed to start transaction" });
+        return;
+      }
+
+      // Insert into sales
+      const insertSalesQuery = `
+        INSERT INTO sales (
+          invoiceId, GrossTotal, CustomerId, discountPercent, discountAmount,
+          netAmount, CashPay, CardPay, PaymentType, Balance, UserName, Store
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `;
+
+      db.query(insertSalesQuery, salesValues, (err) => {
+        if (err) {
+          return db.rollback(() => {
+            console.error("Error adding sales record:", err.message, err.stack);
+            res.status(500).json({ message: "Failed to add sales record" });
+          });
+        }
+
+        // Insert into invoices
+        const insertItemsQuery = `
+          INSERT INTO invoices (
+            invoiceId, name, cost, mrp, discount, rate, quantity, totalAmount, barcode, UserName, Store
+          ) VALUES ?
+        `;
+        db.query(insertItemsQuery, [invoiceItemsValues], async (err) => {
+          if (err) {
+            return db.rollback(() => {
+              console.error("Error adding invoice items:", err.message, err.stack);
+              res.status(500).json({ message: "Failed to add invoice items" });
+            });
+          }
+
+          try {
+            // Update stock quantities for each product and log stock out
+            for (const item of invoiceItems) {
+              const quantity = parseFloat(item.quantity);
+              const barcode = item.barcode;
+
+              // Step 1: Update stock quantity
+              const updateStockQuery = `
+                UPDATE products
+                SET stockQuantity = stockQuantity - ?
+                WHERE barcode = ? AND stockQuantity >= ?
+              `;
+
+              await new Promise((resolve, reject) => {
+                db.query(updateStockQuery, [quantity, barcode, quantity], (err, results) => {
+                  if (err) {
+                    console.error(`Error updating stock for barcode ${barcode}:`, err.message, err.stack);
+                    return reject(err);
+                  }
+
+                  if (results.affectedRows === 0) {
+                    return reject(
+                      new Error(
+                        `Not enough stock available for product with barcode ${barcode}`
+                      )
+                    );
+                  }
+                  resolve();
+                });
+              });
+
+              // Step 2: Ensure productId is available
+              const productId = item.productId || (await new Promise((resolve, reject) => {
+                const fetchProductQuery = `SELECT productId FROM products WHERE barcode = ?`;
+                db.query(fetchProductQuery, [barcode], (err, results) => {
+                  if (err || results.length === 0) {
+                    console.error(`Error fetching productId for barcode ${barcode}:`, err.message, err.stack);
+                    return reject(new Error(`Product ID not found for barcode ${barcode}`));
+                  }
+                  resolve(results[0].productId);
+                });
+              }));
+
+              // Step 3: Log stock-out event in `product_stockout` table
+              const insertStockOutQuery = `
+                INSERT INTO product_stockout (productId, productName, barcode, quantity, type, store, date)
+                VALUES (?, ?, ?, ?, 'Selling Product', ?, NOW())
+              `;
+
+              await new Promise((resolve, reject) => {
+                db.query(
+                  insertStockOutQuery,
+                  [productId, item.name, barcode, quantity, store],
+                  (err) => {
+                    if (err) {
+                      console.error(`Error logging stock-out for barcode ${barcode}:`, err.message, err.stack);
+                      return reject(err);
+                    }
+                    resolve();
+                  }
+                );
+              });
+            }
+
+            // Commit transaction
+            db.commit((err) => {
+              if (err) {
+                return db.rollback(() => {
+                  console.error("Transaction commit failed:", err.message, err.stack);
+                  res.status(500).json({ message: "Transaction failed" });
+                });
+              }
+              console.log("Sales record and invoice items saved successfully.");
+              res.status(201).json({
+                message: "Sales record and invoice items saved successfully.",
+                invoiceId,
+              });
+            });
+          } catch (err) {
+            db.rollback(() => {
+              console.error("Error updating stock quantities:", err.message, err.stack);
+              res.status(400).json({ message: err.message });
+            });
+          }
+        });
+      });
+    });
+  } catch (err) {
+    console.error("Error saving sales or invoice items:", err.message, err.stack);
+    res.status(500).json({ message: "Internal server error", error: err.message });
+  }
+});
+
+
+*/
 // Route to fetch all sales records
 router.get("/fetch_sales", (req, res) => {
   const fetchQuery = "SELECT * FROM sales";

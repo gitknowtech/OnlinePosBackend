@@ -244,7 +244,6 @@ router.get('/customers', (req, res) => {
 
 
 
-
 router.put("/update_sale/:invoiceId", async (req, res) => {
   const { invoiceId } = req.params;
   const { CashPay, CardPay, Balance, customerId } = req.body;
@@ -283,6 +282,16 @@ router.put("/update_sale/:invoiceId", async (req, res) => {
     const newCardPay = parseFloat(CardPay) || 0;
     const newBalance = parseFloat(Balance) || 0;
 
+    // Determine the PaymentType
+    let paymentType = "Unknown";
+    if (newCashPay > 0 && newCardPay > 0) {
+      paymentType = "Cash and Card Payment";
+    } else if (newCashPay > 0) {
+      paymentType = "Cash Payment";
+    } else if (newCardPay > 0) {
+      paymentType = "Card Payment";
+    }
+
     // Calculate incremental amounts
     const cashIncrement = newCashPay - currentCash;
     const cardIncrement = newCardPay - currentCard;
@@ -311,13 +320,14 @@ router.put("/update_sale/:invoiceId", async (req, res) => {
     // Update the sales table with the new values
     const updateSalesQuery = `
       UPDATE sales 
-      SET CashPay = ?, CardPay = ?, Balance = ?
+      SET CashPay = ?, CardPay = ?, Balance = ?, PaymentType = ?
       WHERE invoiceId = ?
     `;
     const updateResult = await db.query(updateSalesQuery, [
       newCashPay,
       newCardPay,
       newBalance,
+      paymentType,
       invoiceId,
     ]);
 
@@ -353,6 +363,141 @@ router.get("/payment_history/:invoiceId", async (req, res) => {
     res.status(500).json({ message: "Failed to fetch payment history" });
   }
 });
+
+
+
+router.delete("/delete_payment/:paymentId", async (req, res) => {
+  const { paymentId } = req.params;
+
+  try {
+    // Fetch the payment details to determine the amounts to revert
+    const fetchPaymentQuery = `
+      SELECT invoiceId, cashPayment, cardPayment, totalPayment 
+      FROM customer_loan_payment 
+      WHERE id = ?
+    `;
+    const [payment] = await db.query(fetchPaymentQuery, [paymentId]);
+
+    // Check if the payment exists
+    if (!payment) {
+      return res.status(404).json({ message: "Payment not found" });
+    }
+
+    const { invoiceId, cashPayment, cardPayment, totalPayment } = payment;
+
+    // Fetch current sales details
+    const fetchSalesQuery = `
+      SELECT CashPay, CardPay, Balance 
+      FROM sales 
+      WHERE invoiceId = ?
+    `;
+    const [sale] = await db.query(fetchSalesQuery, [invoiceId]);
+
+    // Check if the sales record exists
+    if (!sale) {
+      return res.status(404).json({ message: "Invoice not found in sales table" });
+    }
+
+    const currentCashPay = parseFloat(sale.CashPay) || 0;
+    const currentCardPay = parseFloat(sale.CardPay) || 0;
+    const currentBalance = parseFloat(sale.Balance) || 0;
+
+    // Calculate new values for the sales table
+    const updatedCashPay = currentCashPay - (parseFloat(cashPayment) || 0);
+    const updatedCardPay = currentCardPay - (parseFloat(cardPayment) || 0);
+    const updatedBalance = currentBalance - (parseFloat(totalPayment) || 0);
+
+    // Update the sales table
+    const updateSalesQuery = `
+      UPDATE sales 
+      SET CashPay = ?, CardPay = ?, Balance = ? 
+      WHERE invoiceId = ?
+    `;
+    await db.query(updateSalesQuery, [
+      updatedCashPay,
+      updatedCardPay,
+      updatedBalance,
+      invoiceId,
+    ]);
+
+    // Delete the payment record from customer_loan_payment table
+    const deletePaymentQuery = `
+      DELETE FROM customer_loan_payment 
+      WHERE id = ?
+    `;
+    await db.query(deletePaymentQuery, [paymentId]);
+
+    res.status(200).json({ message: "Payment deleted and sales updated successfully" });
+  } catch (error) {
+    console.error("Error deleting payment:", error);
+    res.status(500).json({ message: "Failed to delete payment", error: error.message });
+  }
+});
+
+
+
+
+
+router.get("/report", async (req, res) => {
+  const { query, startDate, endDate } = req.query;
+
+  try {
+    // Fetch customer details
+    const customerQuery = `
+      SELECT * FROM customers 
+      WHERE id = ? OR mobile1 = ? OR mobile2 = ? 
+    `;
+    const [customer] = await db.query(customerQuery, [query, query, query, query]);
+
+    if (!customer) {
+      return res.status(404).json({ message: "Customer not found" });
+    }
+
+    // Fetch sales data with date range filtering
+    let salesQuery = `
+      SELECT * FROM sales 
+      WHERE CustomerId = ?
+    `;
+    const params = [customer.id];
+
+    if (startDate) {
+      salesQuery += ` AND createdAt >= ?`;
+      params.push(startDate);
+    }
+
+    if (endDate) {
+      salesQuery += ` AND createdAt <= ?`;
+      params.push(endDate);
+    }
+
+    const sales = await db.query(salesQuery, params);
+
+    res.status(200).json({ sales });
+  } catch (error) {
+    console.error("Error fetching customer report:", error.message);
+    res.status(500).json({ message: "Failed to fetch customer report" });
+  }
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
