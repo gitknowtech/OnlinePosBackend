@@ -368,7 +368,7 @@ router.post('/update_stock_transfer', (req, res) => {
     // Insert a record into `product_stockin`
     const insertStockInQuery = `
         INSERT INTO product_stockin (productId, productName, barcode, quantity, type, store, date)
-        VALUES (?, ?, ?, ?, 'StockIn', ?, NOW())
+        VALUES (?, ?, ?, ?, 'StockInTransfer', ?, NOW())
     `;
 
     db.query(insertStockInQuery, [productId, productName, barcode, parsedQuantity, store], (err, result) => {
@@ -538,7 +538,7 @@ router.post('/update_stock_transfer_out', (req, res) => {
     // Insert a record into `product_stockout`
     const insertStockOutQuery = `
         INSERT INTO product_stockout (productId, productName, barcode, quantity, type, store, date)
-        VALUES (?, ?, ?, ?, 'StockOut', ?, NOW())
+        VALUES (?, ?, ?, ?, 'StockOutTransfer', ?, NOW())
     `;
 
     db.query(insertStockOutQuery, [productId, productName, barcode, parsedQuantity, store], (err, result) => {

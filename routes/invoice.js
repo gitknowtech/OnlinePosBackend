@@ -36,40 +36,54 @@ const createSalesTable = () => {
 
 
 
-
 const createInvoicesTable = () => {
   const createTableQuery = `
     CREATE TABLE IF NOT EXISTS invoices (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      invoiceId VARCHAR(100) NOT NULL,
-      productId VARCHAR(1000) NOT NULL,
-      name VARCHAR(255) NOT NULL,
-      cost DECIMAL(10,2),
-      mrp DECIMAL(10,2),
-      discount DECIMAL(10,2),
-      rate DECIMAL(10,2),
-      quantity DECIMAL(10,2),
-      totalAmount DECIMAL(10,2),
-      barcode VARCHAR(255),
-      totalCost DECIMAL(10,2) AS (cost * quantity) STORED, -- Auto-calculated column for total cost
-      profit DECIMAL(10,2) AS ((rate * quantity) - (cost * quantity)) STORED, -- Auto-calculated column for profit
-      profitPercentage DECIMAL(10,2) AS (
-        CASE 
-          WHEN (cost * quantity) > 0 THEN ((profit / (cost * quantity)) * 100) 
-          ELSE 0 
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    invoiceId VARCHAR(100) NOT NULL,
+    productId VARCHAR(1000) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    cost DECIMAL(10,2),
+    mrp DECIMAL(10,2),
+    discount DECIMAL(10,2),
+    rate DECIMAL(10,2),
+    quantity DECIMAL(10,2),
+    totalAmount DECIMAL(10,2),
+    barcode VARCHAR(255),
+
+    -- Updated totalCost to handle negative cost and quantity
+    totalCost DECIMAL(10,2) AS (
+        CASE
+            WHEN cost < 0 AND quantity < 0 THEN -(cost * quantity)
+            ELSE cost * quantity
         END
-      ) STORED, -- Auto-calculated column for profit percentage
-      discPercentage DECIMAL(10,2) AS (
+    ) STORED,
+
+    profit DECIMAL(10,2) AS (
+    CASE
+        WHEN rate < 0 AND quantity < 0 THEN -((rate * quantity) - (cost * quantity))
+        WHEN cost < 0 AND quantity < 0 THEN -((rate * quantity) - (cost * quantity))
+        ELSE ((rate * quantity) - (cost * quantity))
+    END
+) STORED
+,
+    profitPercentage DECIMAL(10,2) AS (
         CASE 
-          WHEN mrp > 0 THEN ((mrp - rate) / mrp) * 100
-          ELSE 0
+            WHEN ABS(cost * quantity) > 0 THEN ((rate - cost) / ABS(cost)) * 100
+            ELSE 0
         END
-      ) STORED, -- Auto-calculated column for discount percentage
-      UserName VARCHAR(255) NOT NULL, -- Include UserName
-      Store VARCHAR(255) NOT NULL,    -- Include Store
-      createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ) STORED,
+    discPercentage DECIMAL(10,2) AS (
+        CASE 
+            WHEN mrp > 0 THEN ((mrp - rate) / mrp) * 100
+            ELSE 0
+        END
+    ) STORED,
+    UserName VARCHAR(255) NOT NULL,
+    Store VARCHAR(255) NOT NULL,
+    createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (invoiceId) REFERENCES sales(invoiceId) ON DELETE CASCADE
-    )
+    );
   `;
   db.query(createTableQuery, (err) => {
     if (err) {
@@ -85,6 +99,10 @@ const createInvoicesTable = () => {
 // Call the functions to create tables on server start
 createSalesTable();
 createInvoicesTable();
+
+
+
+
 
 // Generate unique invoice ID
 const generateInvoiceId = () => {
@@ -111,177 +129,227 @@ const generateInvoiceId = () => {
 
 
 
-// API to add a new sales record
-router.post("/add_sales", async (req, res) => {
+router.post('/add_sales', (req, res) => {
   const {
-    GrossTotal = 0,
-    CustomerId = "Unknown",
-    discountPercent = 0,
-    discountAmount = 0,
-    netAmount = 0,
-    CashPay = 0,
-    CardPay = 0,
-    PaymentType = "Cash Payment",
-    Balance = 0,
-    invoiceItems = [],
+    GrossTotal,
+    CustomerId,
+    discountPercent,
+    discountAmount,
+    netAmount,
+    CashPay,
+    CardPay,
+    PaymentType,
+    Balance,
+    invoiceItems,
     user,
     store,
   } = req.body;
 
-  // Validate required fields
-  if (
-    typeof GrossTotal !== "number" ||
-    typeof netAmount !== "number" ||
-    !PaymentType ||
-    !Array.isArray(invoiceItems) ||
-    !user ||
-    !store ||
-    invoiceItems.length === 0
-  ) {
-    return res.status(400).json({
-      message: "Missing required fields or invalid invoice items.",
-    });
-  }
-
-  try {
-    // Generate unique invoice ID
-    const invoiceId = await generateInvoiceId();
-    console.log(`Generated invoiceId: ${invoiceId}`);
-
-    // Prepare sales values
-    const salesValues = [
-      invoiceId,
-      GrossTotal,
-      CustomerId,
-      discountPercent,
-      discountAmount,
-      netAmount,
-      CashPay,
-      CardPay,
-      PaymentType,
-      Balance,
-      user,
-      store,
-    ];
-
-    // Validate and fetch details for invoice items
-    const validatedItems = await Promise.all(
-      invoiceItems.map(async (item) => {
-        const { barcode, quantity = 0, productId } = item;
-
-        if (!barcode && !productId) {
-          throw new Error("Missing barcode or productId for an invoice item.");
-        }
-
-        const fetchProductQuery = `
-          SELECT productId, productName, barcode, costPrice, mrpPrice, stockQuantity
-          FROM products
-          WHERE barcode = ? OR productId = ?
-          LIMIT 1
-        `;
-
-        const productDetails = await new Promise((resolve, reject) => {
-          db.query(
-            fetchProductQuery,
-            [barcode || null, productId || null],
-            (err, results) => {
-              if (err || results.length === 0) {
-                return reject(
-                  new Error(
-                    `Product not found for barcode or productId: ${barcode || productId}`
-                  )
-                );
-              }
-              resolve(results[0]);
-            }
-          );
-        });
-
-        return {
-          ...productDetails,
-          ...item,
-          quantity: parseFloat(quantity) || 0,
-        };
-      })
-    );
-
-    // Prepare invoice items values
-    const invoiceItemsValues = validatedItems.map((item) => [
-      invoiceId,
-      item.productId || "Unknown",
-      item.productName || "Unknown Product",
-      item.cost || 0,
-      item.mrp || 0,
-      item.discount || 0,
-      item.rate || 0,
-      item.quantity || 0,
-      item.amount || 0,
-      item.barcode || null,
-      user,
-      store,
-    ]);
-
-    // Start transaction
-    db.beginTransaction((err) => {
-      if (err) {
-        console.error("Error starting transaction:", err.message);
-        return res.status(500).json({ message: "Failed to start transaction" });
-      }
-
-      // Insert into sales table
-      const insertSalesQuery = `
-        INSERT INTO sales (
-          invoiceId, GrossTotal, CustomerId, discountPercent, discountAmount,
-          netAmount, CashPay, CardPay, PaymentType, Balance, UserName, Store
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `;
-
-      db.query(insertSalesQuery, salesValues, (err) => {
+  generateInvoiceId()
+    .then((invoiceId) => {
+      // Start a database transaction
+      db.beginTransaction((err) => {
         if (err) {
-          return db.rollback(() => {
-            console.error("Error adding sales record:", err.message);
-            return res.status(500).json({ message: "Failed to add sales record" });
-          });
+          console.error('Error starting transaction:', err);
+          return res.status(500).json({ message: 'Transaction error' });
         }
 
-        // Insert into invoices table
-        const insertItemsQuery = `
-          INSERT INTO invoices (
-            invoiceId, productId, name, cost, mrp, discount, rate, quantity, totalAmount, barcode, UserName, Store
-          ) VALUES ?
+        // Step 1: Insert into sales table, including invoiceId
+        const insertSalesQuery = `
+          INSERT INTO sales (invoiceId, GrossTotal, CustomerId, discountPercent, discountAmount, netAmount, CashPay, CardPay, PaymentType, Balance, UserName, Store)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
-        db.query(insertItemsQuery, [invoiceItemsValues], (err) => {
+        const salesValues = [invoiceId, GrossTotal, CustomerId, discountPercent, discountAmount, netAmount, CashPay, CardPay, PaymentType, Balance, user, store];
+
+        db.query(insertSalesQuery, salesValues, (err, result) => {
           if (err) {
             return db.rollback(() => {
-              console.error("Error adding invoice items:", err.message);
-              return res.status(500).json({ message: "Failed to add invoice items" });
+              console.error('Error inserting into sales:', err);
+              res.status(500).json({ message: 'Error saving sale' });
             });
           }
 
-          // Commit transaction
-          db.commit((err) => {
-            if (err) {
-              return db.rollback(() => {
-                console.error("Transaction commit failed:", err.message);
-                return res.status(500).json({ message: "Transaction failed" });
+          // Step 2: Insert invoice items and adjust stock quantities
+          const processItems = invoiceItems.map((item) => {
+            return new Promise((resolve, reject) => {
+              const {
+                productId,
+                name,
+                cost,
+                mrp,
+                discount,
+                rate,
+                quantity,
+                amount,
+                barcode,
+              } = item;
+
+              // Insert into invoices table
+              const insertItemQuery = `
+                INSERT INTO invoices (invoiceId, productId, name, cost, mrp, discount, rate, quantity, totalAmount, barcode, UserName, Store)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              `;
+
+              const itemValues = [invoiceId, productId, name, cost, mrp, discount, rate, quantity, amount, barcode, user, store];
+
+              db.query(insertItemQuery, itemValues, (err, result) => {
+                if (err) {
+                  return reject(err);
+                }
+
+                const parsedQuantity = parseFloat(parseFloat(quantity).toFixed(4));
+                const absoluteQuantity = Math.abs(parsedQuantity);
+
+                if (parsedQuantity > 0) {
+                  // Sale: Decrease stock and insert into product_stockout
+                  updateStockAndInsertStockOut(productId, name, barcode, parsedQuantity, store)
+                    .then(() => resolve())
+                    .catch((err) => reject(err));
+                } else if (parsedQuantity < 0) {
+                  // Return: Increase stock and insert into product_stockin
+                  updateStockAndInsertStockIn(productId, name, barcode, absoluteQuantity, store)
+                    .then(() => resolve())
+                    .catch((err) => reject(err));
+                } else {
+                  // Quantity is zero; do nothing
+                  resolve();
+                }
               });
-            }
-            console.log("Sales record and invoice items saved successfully.");
-            return res.status(201).json({
-              message: "Sales record and invoice items saved successfully.",
-              invoiceId,
             });
           });
+
+          // Process all items
+          Promise.all(processItems)
+            .then(() => {
+              db.commit((err) => {
+                if (err) {
+                  return db.rollback(() => {
+                    console.error('Error committing transaction:', err);
+                    res.status(500).json({ message: 'Transaction commit error' });
+                  });
+                }
+                res.json({ message: 'Sales data saved successfully!', invoiceId });
+              });
+            })
+            .catch((err) => {
+              db.rollback(() => {
+                console.error('Error processing invoice items:', err);
+                res.status(500).json({ message: 'Error processing invoice items' });
+              });
+            });
         });
       });
+    })
+    .catch((err) => {
+      console.error('Error generating invoiceId:', err);
+      res.status(500).json({ message: 'Error generating invoiceId' });
     });
-  } catch (err) {
-    console.error("Error processing sales request:", err.message);
-    return res.status(500).json({ message: "Internal server error", error: err.message });
-  }
 });
+
+
+
+
+
+// Function to update stock and insert into product_stockout
+function updateStockAndInsertStockOut(productId, productName, barcode, quantity, store) {
+  return new Promise((resolve, reject) => {
+    const updateStockQuery = `
+      UPDATE products
+      SET stockQuantity = stockQuantity - ?
+      WHERE productId = ?
+    `;
+
+    db.query(updateStockQuery, [quantity, productId], (err, result) => {
+      if (err) {
+        return reject(err);
+      }
+
+      // Ensure barcode is not null
+      if (!barcode) {
+        // Fetch barcode from products table
+        const getBarcodeQuery = 'SELECT barcode FROM products WHERE productId = ?';
+
+        db.query(getBarcodeQuery, [productId], (err, results) => {
+          if (err) {
+            return reject(err);
+          }
+
+          barcode = results[0]?.barcode || 'NO_BARCODE';
+          proceedInsert();
+        });
+      } else {
+        proceedInsert();
+      }
+
+      function proceedInsert() {
+        const insertStockOutQuery = `
+          INSERT INTO product_stockout (productId, productName, barcode, quantity, type, store, date)
+          VALUES (?, ?, ?, ?, 'Selled Item', ?, NOW())
+        `;
+
+        db.query(insertStockOutQuery, [productId, productName, barcode, quantity, store], (err, result) => {
+          if (err) {
+            return reject(err);
+          }
+          resolve();
+        });
+      }
+    });
+  });
+}
+
+
+
+
+// Function to update stock and insert into product_stockin
+function updateStockAndInsertStockIn(productId, productName, barcode, quantity, store) {
+  return new Promise((resolve, reject) => {
+    const updateStockQuery = `
+      UPDATE products
+      SET stockQuantity = stockQuantity + ?
+      WHERE productId = ?
+    `;
+
+    db.query(updateStockQuery, [quantity, productId], (err, result) => {
+      if (err) {
+        return reject(err);
+      }
+
+      // Ensure barcode is not null
+      if (!barcode) {
+        // Fetch barcode from products table
+        const getBarcodeQuery = 'SELECT barcode FROM products WHERE productId = ?';
+
+        db.query(getBarcodeQuery, [productId], (err, results) => {
+          if (err) {
+            return reject(err);
+          }
+
+          barcode = results[0]?.barcode || 'NO_BARCODE';
+          proceedInsert();
+        });
+      } else {
+        proceedInsert();
+      }
+
+      function proceedInsert() {
+        const insertStockInQuery = `
+          INSERT INTO product_stockin (productId, productName, barcode, quantity, type, store, date)
+          VALUES (?, ?, ?, ?, 'ReturnItem', ?, NOW())
+        `;
+
+        db.query(insertStockInQuery, [productId, productName, barcode, quantity, store], (err, result) => {
+          if (err) {
+            return reject(err);
+          }
+          resolve();
+        });
+      }
+    });
+  });
+}
+
 
 
 
@@ -486,9 +554,10 @@ router.post("/add_sales", async (req, res) => {
     res.status(500).json({ message: "Internal server error", error: err.message });
   }
 });
-
-
 */
+
+
+
 // Route to fetch all sales records
 router.get("/fetch_sales", (req, res) => {
   const fetchQuery = "SELECT * FROM sales";
@@ -504,7 +573,8 @@ router.get("/fetch_sales", (req, res) => {
 });
 
 
-// Route to fetch all sales records with PaymentType = 'creditPayment'
+
+
 // Route to fetch all sales records where PaymentType is "Credit Payment" and matches the Store
 router.get("/fetch_sales_new", (req, res) => {
   const { Store } = req.query;
@@ -550,6 +620,7 @@ router.get("/fetch_invoice_items/:invoiceId", (req, res) => {
 
 
 
+
 // API to get stock quantity for a product by barcode
 router.get('/stock_quantity', (req, res) => {
   const { barcode } = req.query;
@@ -578,6 +649,7 @@ router.get('/stock_quantity', (req, res) => {
     res.status(200).json({ stockQuantity });
   });
 });
+
 
 
 
@@ -611,6 +683,9 @@ router.get("/fetch_invoices", (req, res) => {
 });
 
 
+
+
+
 router.get("/fetch_sales_sales", (req, res) => {
   const { Store } = req.query; // Get Store parameter from the query
   console.log("Store received in API request:", Store); // Log the Store value
@@ -641,6 +716,9 @@ router.get("/fetch_sales_sales", (req, res) => {
     res.status(200).json(results); // Return results as JSON
   });
 });
+
+
+
 
 
 router.get("/fetch_customer_payment_details/:customerId", async (req, res) => {
@@ -678,6 +756,8 @@ router.get("/fetch_customer_payment_details/:customerId", async (req, res) => {
     res.status(500).json({ message: "Failed to fetch payment details." });
   }
 });
+
+
 
 
 
