@@ -598,8 +598,14 @@ router.get("/get_categories_stock", (req, res) => {
 
 
 // API to fetch products by selected category
+
+// 7. Fetch products by selected category
 router.get("/fetch_products_by_category", (req, res) => {
     const { category } = req.query;
+
+    if (!category) {
+        return res.status(400).json({ message: 'Missing category parameter' });
+    }
 
     const query = `
         SELECT 
@@ -609,6 +615,7 @@ router.get("/fetch_products_by_category", (req, res) => {
             selectedUnit,
             mrpPrice,
             stockQuantity,
+            imageLink,          -- Include imageLink here
             store,
             user,
             saveTime
@@ -624,9 +631,6 @@ router.get("/fetch_products_by_category", (req, res) => {
         res.status(200).json(results); // Return products in the selected category
     });
 });
-
-
-
 
 
 

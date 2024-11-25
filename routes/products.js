@@ -585,14 +585,24 @@ router.get('/fetch_products_by_category', (req, res) => {
       return res.status(400).json({ message: "Category ID is required." });
   }
 
-  const query = "SELECT * FROM products WHERE selectedCategory = ?";
+  const query = `
+      SELECT 
+          productId,
+          productName,
+          selectedUnit,
+          mrpPrice,
+          stockQuantity,
+          imageLink -- Include the imageLink field
+      FROM products
+      WHERE selectedCategory = ?
+  `;
 
   db.query(query, [categoryId], (err, results) => {
       if (err) {
           console.error("Error fetching products:", err);
           return res.status(500).json({ message: "Failed to fetch products." });
       }
-      res.status(200).json(results); // Return the products for the category
+      res.status(200).json(results);
   });
 });
 
@@ -757,6 +767,36 @@ router.get('/get_supplier_products/:supplierName', (req, res) => {
 });
 
 
+
+router.get('/fetch_products_by_category', (req, res) => {
+  const { category } = req.query;
+
+  if (!category) {
+    return res.status(400).json({ message: 'Category is required.' });
+  }
+
+  const query = `
+    SELECT 
+      productId, 
+      productName, 
+      selectedUnit, 
+      mrpPrice, 
+      stockQuantity, 
+      imageLink
+    FROM products
+    WHERE selectedCategory = ?
+  `;
+
+  db.query(query, [category], (err, results) => {
+    if (err) {
+      console.error('Error fetching products by category:', err);
+      return res.status(500).json({ message: 'Error fetching products.' });
+    }
+
+    console.log('Fetched Products by Category:', results); // DEBUG
+    res.json(results); // Ensure `imageLink` is included
+  });
+});
 
 
 
