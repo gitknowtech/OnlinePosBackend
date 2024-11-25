@@ -615,6 +615,27 @@ router.get("/calculate_customer_balance", async (req, res) => {
 
 
 
+// GET /api/customers/check_invoices?invoiceId=INV12345
+router.get('/check_invoices', (req, res) => {
+  const { invoiceId } = req.query;
+
+  if (!invoiceId) {
+    return res.status(400).json({ message: 'invoiceId is required' });
+  }
+
+  const query = 'SELECT COUNT(*) AS count FROM customer_loan_payment WHERE invoiceId = ?';
+
+  db.query(query, [invoiceId], (error, results) => {
+    if (error) {
+      console.error('Error checking customer loan payment:', error);
+      res.status(500).json({ message: 'Server error' });
+    } else {
+      const count = results[0]?.count || 0;
+      res.json({ hasLoanPayment: count > 0 });
+    }
+  });
+});
+
 
 
 module.exports = router;

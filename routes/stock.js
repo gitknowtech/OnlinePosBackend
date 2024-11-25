@@ -15,7 +15,8 @@ const createProductStockInTable = () => {
       quantity DECIMAL(10,4),
       type VARCHAR(255),
       store VARCHAR(255),
-      date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      invoiceId VARCHAR(255)
     )`;
   
   
@@ -224,7 +225,8 @@ router.get('/fetch_products', (req, res) => {
       quantity DECIMAL(10,4),
       type VARCHAR(255),
       store VARCHAR(255),
-      date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      invoiceId VARCHAR(255)
     )`;
 
     db.query(createTableQuery, (err, result) => {

@@ -128,6 +128,7 @@ const generateInvoiceId = () => {
 
 
 
+// ... (Assuming necessary imports and initializations are done)
 
 router.post('/add_sales', (req, res) => {
   const {
@@ -203,12 +204,12 @@ router.post('/add_sales', (req, res) => {
 
                 if (parsedQuantity > 0) {
                   // Sale: Decrease stock and insert into product_stockout
-                  updateStockAndInsertStockOut(productId, name, barcode, parsedQuantity, store)
+                  updateStockAndInsertStockOut(productId, name, barcode, parsedQuantity, store, invoiceId)
                     .then(() => resolve())
                     .catch((err) => reject(err));
                 } else if (parsedQuantity < 0) {
                   // Return: Increase stock and insert into product_stockin
-                  updateStockAndInsertStockIn(productId, name, barcode, absoluteQuantity, store)
+                  updateStockAndInsertStockIn(productId, name, barcode, absoluteQuantity, store, invoiceId)
                     .then(() => resolve())
                     .catch((err) => reject(err));
                 } else {
@@ -247,12 +248,8 @@ router.post('/add_sales', (req, res) => {
     });
 });
 
-
-
-
-
 // Function to update stock and insert into product_stockout
-function updateStockAndInsertStockOut(productId, productName, barcode, quantity, store) {
+function updateStockAndInsertStockOut(productId, productName, barcode, quantity, store, invoiceId) {
   return new Promise((resolve, reject) => {
     const updateStockQuery = `
       UPDATE products
@@ -284,11 +281,11 @@ function updateStockAndInsertStockOut(productId, productName, barcode, quantity,
 
       function proceedInsert() {
         const insertStockOutQuery = `
-          INSERT INTO product_stockout (productId, productName, barcode, quantity, type, store, date)
-          VALUES (?, ?, ?, ?, 'Selled Item', ?, NOW())
+          INSERT INTO product_stockout (productId, productName, barcode, quantity, type, store, date, invoiceId)
+          VALUES (?, ?, ?, ?, 'Selled Item', ?, NOW(), ?)
         `;
 
-        db.query(insertStockOutQuery, [productId, productName, barcode, quantity, store], (err, result) => {
+        db.query(insertStockOutQuery, [productId, productName, barcode, quantity, store, invoiceId], (err, result) => {
           if (err) {
             return reject(err);
           }
@@ -299,11 +296,8 @@ function updateStockAndInsertStockOut(productId, productName, barcode, quantity,
   });
 }
 
-
-
-
 // Function to update stock and insert into product_stockin
-function updateStockAndInsertStockIn(productId, productName, barcode, quantity, store) {
+function updateStockAndInsertStockIn(productId, productName, barcode, quantity, store, invoiceId) {
   return new Promise((resolve, reject) => {
     const updateStockQuery = `
       UPDATE products
@@ -335,11 +329,11 @@ function updateStockAndInsertStockIn(productId, productName, barcode, quantity, 
 
       function proceedInsert() {
         const insertStockInQuery = `
-          INSERT INTO product_stockin (productId, productName, barcode, quantity, type, store, date)
-          VALUES (?, ?, ?, ?, 'ReturnItem', ?, NOW())
+          INSERT INTO product_stockin (productId, productName, barcode, quantity, type, store, date, invoiceId)
+          VALUES (?, ?, ?, ?, 'ReturnItem', ?, NOW(), ?)
         `;
 
-        db.query(insertStockInQuery, [productId, productName, barcode, quantity, store], (err, result) => {
+        db.query(insertStockInQuery, [productId, productName, barcode, quantity, store, invoiceId], (err, result) => {
           if (err) {
             return reject(err);
           }
@@ -349,8 +343,6 @@ function updateStockAndInsertStockIn(productId, productName, barcode, quantity, 
     });
   });
 }
-
-
 
 
 
@@ -783,6 +775,350 @@ router.get("/fetch_customer_payment_details/:customerId", async (req, res) => {
     res.status(500).json({ message: "Failed to fetch payment details." });
   }
 });
+
+
+
+
+/*
+// DELETE /api/invoices/delete_invoice/:invoiceId
+router.delete('/delete_invoice/:invoiceId', (req, res) => {
+  const { invoiceId } = req.params;
+
+  // Step 1: Check if the invoice is linked in customer_loan_payment
+  const checkLoanPaymentQuery =
+    'SELECT COUNT(*) AS count FROM customer_loan_payment WHERE invoiceId = ?';
+
+  db.query(checkLoanPaymentQuery, [invoiceId], (err, loanResults) => {
+    if (err) {
+      console.error('Error checking customer loan payment:', err);
+      return res.status(500).json({ message: 'Server error' });
+    }
+
+    const loanCount = loanResults[0]?.count || 0;
+
+    if (loanCount > 0) {
+      // Invoice is linked to customer loan payments, cannot delete
+      return res.status(400).json({
+        message:
+          'Cannot delete invoice. This invoice is linked to customer loan payments.',
+      });
+    }
+
+    // Step 2: Proceed to delete the invoice
+    // Start a transaction to ensure data integrity
+    db.beginTransaction((transactionErr) => {
+      if (transactionErr) {
+        console.error('Error starting transaction:', transactionErr);
+        return res.status(500).json({ message: 'Server error' });
+      }
+
+      // Step 2a: Retrieve all products from the invoice
+      const getInvoiceItemsQuery = 'SELECT productId, quantity FROM invoices WHERE invoiceId = ?';
+
+      db.query(getInvoiceItemsQuery, [invoiceId], (getItemsErr, invoiceItems) => {
+        if (getItemsErr) {
+          console.error('Error retrieving invoice items:', getItemsErr);
+          return db.rollback(() => {
+            res.status(500).json({ message: 'Server error retrieving invoice items' });
+          });
+        }
+
+        // Prepare to update stock quantities
+        const updateStockPromises = invoiceItems.map((item) => {
+          return new Promise((resolve, reject) => {
+            const { productId, quantity } = item;
+
+            const parsedQuantity = parseFloat(quantity);
+            const absoluteQuantity = Math.abs(parsedQuantity);
+
+            let updateStockQuery = '';
+            let updateStockParams = [];
+
+            if (parsedQuantity > 0) {
+              // Sale: Increase stock quantity by adding back sold quantity
+              updateStockQuery = `
+                UPDATE products
+                SET stockQuantity = stockQuantity + ?
+                WHERE productId = ?
+              `;
+              updateStockParams = [parsedQuantity, productId];
+            } else if (parsedQuantity < 0) {
+              // Return: Decrease stock quantity by subtracting returned quantity
+              updateStockQuery = `
+                UPDATE products
+                SET stockQuantity = stockQuantity - ?
+                WHERE productId = ?
+              `;
+              updateStockParams = [absoluteQuantity, productId];
+            } else {
+              // Quantity is zero; do nothing
+              return resolve();
+            }
+
+            db.query(updateStockQuery, updateStockParams, (updateErr, updateResult) => {
+              if (updateErr) {
+                console.error(`Error updating stock for productId ${productId}:`, updateErr);
+                return reject(updateErr);
+              }
+              resolve();
+            });
+          });
+        });
+
+        // Execute all stock updates
+        Promise.all(updateStockPromises)
+          .then(() => {
+            // After updating stock quantities, proceed to delete from invoices table
+            const deleteInvoicesQuery = 'DELETE FROM invoices WHERE invoiceId = ?';
+
+            db.query(deleteInvoicesQuery, [invoiceId], (deleteInvoicesErr, deleteInvoicesResult) => {
+              if (deleteInvoicesErr) {
+                console.error(
+                  'Error deleting from invoices table:',
+                  deleteInvoicesErr
+                );
+                return db.rollback(() => {
+                  res
+                    .status(500)
+                    .json({ message: 'Server error during deletion from invoices table' });
+                });
+              }
+
+              // Then delete from sales table
+              const deleteSalesQuery = 'DELETE FROM sales WHERE invoiceId = ?';
+
+              db.query(deleteSalesQuery, [invoiceId], (deleteSalesErr, deleteSalesResult) => {
+                if (deleteSalesErr) {
+                  console.error('Error deleting from sales table:', deleteSalesErr);
+                  return db.rollback(() => {
+                    res
+                      .status(500)
+                      .json({ message: 'Server error during deletion from sales table' });
+                  });
+                }
+
+                // Commit the transaction
+                db.commit((commitErr) => {
+                  if (commitErr) {
+                    console.error('Error committing transaction:', commitErr);
+                    return db.rollback(() => {
+                      res
+                        .status(500)
+                        .json({ message: 'Server error during transaction commit' });
+                    });
+                  }
+
+                  // Deletion successful
+                  res.json({ message: `Invoice ${invoiceId} deleted successfully.` });
+                });
+              });
+            });
+          })
+          .catch((updateStockErr) => {
+            console.error('Error updating stock quantities:', updateStockErr);
+            return db.rollback(() => {
+              res.status(500).json({ message: 'Server error updating stock quantities' });
+            });
+          });
+      });
+    });
+  });
+});
+
+*/
+
+
+// DELETE /api/invoices/delete_invoice/:invoiceId
+// DELETE /api/invoices/delete_invoice/:invoiceId
+router.delete('/delete_invoice/:invoiceId', (req, res) => {
+  const { invoiceId } = req.params;
+
+  // Step 1: Check if the invoice is linked in customer_loan_payment
+  const checkLoanPaymentQuery =
+    'SELECT COUNT(*) AS count FROM customer_loan_payment WHERE invoiceId = ?';
+
+  db.query(checkLoanPaymentQuery, [invoiceId], (err, loanResults) => {
+    if (err) {
+      console.error('Error checking customer loan payment:', err);
+      return res.status(500).json({ message: 'Server error' });
+    }
+
+    const loanCount = loanResults[0]?.count || 0;
+
+    if (loanCount > 0) {
+      // Invoice is linked to customer loan payments, cannot delete
+      return res.status(400).json({
+        message:
+          'Cannot delete invoice. This invoice is linked to customer loan payments.',
+      });
+    }
+
+    // Step 2: Proceed to delete the invoice
+    // Start a transaction to ensure data integrity
+    db.beginTransaction((transactionErr) => {
+      if (transactionErr) {
+        console.error('Error starting transaction:', transactionErr);
+        return res.status(500).json({ message: 'Server error' });
+      }
+
+      // Step 2a: Retrieve all products from the invoice
+      const getInvoiceItemsQuery = 'SELECT productId, quantity FROM invoices WHERE invoiceId = ?';
+
+      db.query(getInvoiceItemsQuery, [invoiceId], (getItemsErr, invoiceItems) => {
+        if (getItemsErr) {
+          console.error('Error retrieving invoice items:', getItemsErr);
+          return db.rollback(() => {
+            res.status(500).json({ message: 'Server error retrieving invoice items' });
+          });
+        }
+
+        // Prepare to update stock quantities
+        const updateStockPromises = invoiceItems.map((item) => {
+          return new Promise((resolve, reject) => {
+            const { productId, quantity } = item;
+
+            const parsedQuantity = parseFloat(quantity);
+            const absoluteQuantity = Math.abs(parsedQuantity);
+
+            let updateStockQuery = '';
+            let updateStockParams = [];
+
+            if (parsedQuantity > 0) {
+              // Sale: Increase stock quantity by adding back sold quantity
+              updateStockQuery = `
+                UPDATE products
+                SET stockQuantity = stockQuantity + ?
+                WHERE productId = ?
+              `;
+              updateStockParams = [parsedQuantity, productId];
+            } else if (parsedQuantity < 0) {
+              // Return: Decrease stock quantity by subtracting returned quantity
+              updateStockQuery = `
+                UPDATE products
+                SET stockQuantity = stockQuantity - ?
+                WHERE productId = ?
+              `;
+              updateStockParams = [absoluteQuantity, productId];
+            } else {
+              // Quantity is zero; do nothing
+              return resolve();
+            }
+
+            db.query(updateStockQuery, updateStockParams, (updateErr, updateResult) => {
+              if (updateErr) {
+                console.error(`Error updating stock for productId ${productId}:`, updateErr);
+                return reject(updateErr);
+              }
+              resolve();
+            });
+          });
+        });
+
+        // Execute all stock updates
+        Promise.all(updateStockPromises)
+          .then(() => {
+            // Delete from product_stockin and product_stockout using invoiceId
+            const deleteStockInQuery = 'DELETE FROM product_stockin WHERE invoiceId = ?';
+            const deleteStockOutQuery = 'DELETE FROM product_stockout WHERE invoiceId = ?';
+
+            db.query(deleteStockInQuery, [invoiceId], (deleteStockInErr, deleteStockInResult) => {
+              if (deleteStockInErr) {
+                console.error('Error deleting from product_stockin:', deleteStockInErr);
+                return db.rollback(() => {
+                  res.status(500).json({ message: 'Server error deleting from product_stockin' });
+                });
+              }
+
+              db.query(deleteStockOutQuery, [invoiceId], (deleteStockOutErr, deleteStockOutResult) => {
+                if (deleteStockOutErr) {
+                  console.error('Error deleting from product_stockout:', deleteStockOutErr);
+                  return db.rollback(() => {
+                    res.status(500).json({ message: 'Server error deleting from product_stockout' });
+                  });
+                }
+
+                // After updating stock quantities and deleting stock entries, proceed to delete from invoices table
+                const deleteInvoicesQuery = 'DELETE FROM invoices WHERE invoiceId = ?';
+
+                db.query(deleteInvoicesQuery, [invoiceId], (deleteInvoicesErr, deleteInvoicesResult) => {
+                  if (deleteInvoicesErr) {
+                    console.error(
+                      'Error deleting from invoices table:',
+                      deleteInvoicesErr
+                    );
+                    return db.rollback(() => {
+                      res
+                        .status(500)
+                        .json({ message: 'Server error during deletion from invoices table' });
+                    });
+                  }
+
+                  // Then delete from sales table
+                  const deleteSalesQuery = 'DELETE FROM sales WHERE invoiceId = ?';
+
+                  db.query(deleteSalesQuery, [invoiceId], (deleteSalesErr, deleteSalesResult) => {
+                    if (deleteSalesErr) {
+                      console.error('Error deleting from sales table:', deleteSalesErr);
+                      return db.rollback(() => {
+                        res
+                          .status(500)
+                          .json({ message: 'Server error during deletion from sales table' });
+                      });
+                    }
+
+                    // Commit the transaction
+                    db.commit((commitErr) => {
+                      if (commitErr) {
+                        console.error('Error committing transaction:', commitErr);
+                        return db.rollback(() => {
+                          res
+                            .status(500)
+                            .json({ message: 'Server error during transaction commit' });
+                        });
+                      }
+
+                      // Deletion successful
+                      res.json({ message: `Invoice ${invoiceId} deleted successfully.` });
+                    });
+                  });
+                });
+              });
+            });
+          })
+          .catch((updateStockErr) => {
+            console.error('Error updating stock quantities:', updateStockErr);
+            return db.rollback(() => {
+              res.status(500).json({ message: 'Server error updating stock quantities' });
+            });
+          });
+      });
+    });
+  });
+});
+
+
+
+
+
+
+
+// Route to check if an invoiceId exists in customer_loan_payment
+router.get('/check_invoice/:invoiceId', (req, res) => {
+  const { invoiceId } = req.params;
+
+  const query = 'SELECT COUNT(*) AS count FROM customer_loan_payment WHERE invoiceId = ?';
+
+  db.query(query, [invoiceId], (error, results) => {
+    if (error) {
+      console.error('Error checking customer loan payment:', error);
+      return res.status(500).json({ message: 'Server error' });
+    }
+
+    const count = results[0].count;
+    res.json({ hasLoanPayment: count > 0 });
+  });
+});
+
 
 
 
