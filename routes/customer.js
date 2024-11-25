@@ -224,7 +224,7 @@ router.get('/customers', (req, res) => {
   }
 
   const query = `
-    SELECT id, cusName, mobile1, mobile2
+    SELECT cusId , cusName, mobile1, mobile2
     FROM customers
     WHERE mobile1 LIKE ? OR mobile2 LIKE ?
     LIMIT 5
@@ -370,6 +370,9 @@ router.get("/payment_history/:invoiceId", async (req, res) => {
     res.status(500).json({ message: "Failed to fetch payment history" });
   }
 });
+
+
+
 
 
 router.delete("/delete_payment/:paymentId", async (req, res) => {
@@ -552,9 +555,62 @@ router.get("/fetch_loan_payments", async (req, res) => {
 
 
 
+router.get("/search_customer_balance_jsx", async (req, res) => {
+  const query = req.query.query;
+
+  if (!query) {
+    return res.status(400).json({ message: "Search query is required." });
+  }
+
+  try {
+    const sql = `
+      SELECT cusId, cusName, mobile1, mobile2, address1
+      FROM customers
+      WHERE cusId LIKE ? OR cusName LIKE ? OR mobile1 LIKE ? OR mobile2 LIKE ?
+      LIMIT 10
+    `;
+    const params = [`%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`];
+    const results = await db.query(sql, params);
+
+    res.status(200).json(results);
+  } catch (error) {
+    console.error("Error fetching customer suggestions:", error);
+    res.status(500).json({ message: "Failed to fetch customer suggestions." });
+  }
+});
 
 
 
+
+
+router.get("/calculate_customer_balance", async (req, res) => {
+  const { customerId } = req.query;
+
+  if (!customerId) {
+    return res.status(400).json({ message: "Customer ID is required" });
+  }
+
+  try {
+    // Query to calculate the total balance for the customer
+    const query = `
+      SELECT 
+        SUM(netAmount - (COALESCE(CashPay, 0) + COALESCE(CardPay, 0))) AS totalBalance
+      FROM sales
+      WHERE CustomerId = ? AND PaymentType = 'Credit Payment'
+    `;
+
+    const [result] = await db.query(query, [customerId]);
+
+    if (!result || result.totalBalance === null) {
+      return res.status(404).json({ message: "No sales data found for this customer" });
+    }
+
+    res.status(200).json({ totalBalance: result.totalBalance });
+  } catch (error) {
+    console.error("Error calculating customer balance:", error);
+    res.status(500).json({ message: "Error calculating customer balance" });
+  }
+});
 
 
 

@@ -598,6 +598,33 @@ router.get("/fetch_sales_new", (req, res) => {
 
 
 
+router.get("/fetch_sales_store_removed", (req, res) => {
+  const { customerId } = req.query; // Extract customerId from query params
+
+  const fetchQuery = `
+    SELECT * FROM sales 
+    WHERE PaymentType = 'Credit Payment'
+    ${customerId ? "AND CustomerId = ?" : ""}
+  `;
+
+  const queryParams = customerId ? [customerId] : [];
+
+  db.query(fetchQuery, queryParams, (err, results) => {
+    if (err) {
+      console.error("Error fetching sales records:", err.message, err.stack);
+      return res
+        .status(500)
+        .json({ message: "Error fetching sales records", error: err.message });
+    }
+    res.status(200).json(results);
+  });
+});
+
+
+
+
+
+
 // Route to fetch all invoice items for a specific invoice
 router.get("/fetch_invoice_items/:invoiceId", (req, res) => {
   const { invoiceId } = req.params;
