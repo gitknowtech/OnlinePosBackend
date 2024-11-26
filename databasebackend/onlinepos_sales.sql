@@ -39,7 +39,7 @@ CREATE TABLE `sales` (
   `createdAt` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `invoiceId` (`invoiceId`)
-) ENGINE=InnoDB AUTO_INCREMENT=17 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -48,7 +48,7 @@ CREATE TABLE `sales` (
 
 LOCK TABLES `sales` WRITE;
 /*!40000 ALTER TABLE `sales` DISABLE KEYS */;
-INSERT INTO `sales` VALUES (1,'2411140001',50.00,'99',5.00,2.50,47.50,45.00,2.50,'Cash and Card Payment',0.00,'abdul','kurunegala','2024-11-14 14:01:06'),(5,'2411170001',3000.00,'Unknown',0.00,0.00,3000.00,4000.00,0.00,'Cash Payment',1000.00,'abdul','kurunegala','2024-11-17 11:05:02'),(6,'2411170002',500.00,'Unknown',0.00,0.00,500.00,500.00,0.00,'Cash Payment',0.00,'abdul','kurunegala','2024-11-17 11:57:47'),(7,'2411170003',940.00,'Unknown',0.00,0.00,940.00,1000.00,0.00,'Cash Payment',60.00,'abdul','kurunegala','2024-11-17 12:03:20'),(8,'2411170004',-450.00,'Unknown',0.00,0.00,-450.00,0.00,0.00,'Return Payment',-450.00,'abdul','kurunegala','2024-11-17 12:04:01'),(9,'2411170005',900.00,'Unknown',0.00,0.00,900.00,1000.00,0.00,'Cash Payment',100.00,'abdul','kurunegala','2024-11-17 12:06:04'),(10,'2411170006',-900.00,'Unknown',0.00,0.00,-900.00,0.00,0.00,'Return Payment',-900.00,'abdul','kurunegala','2024-11-17 12:06:24'),(11,'2411170007',-450.00,'Unknown',0.00,0.00,-450.00,0.00,0.00,'Return Payment',-450.00,'abdul','kurunegala','2024-11-17 12:25:41'),(12,'2411170008',2700.00,'Unknown',0.00,0.00,2700.00,5000.00,0.00,'Cash Payment',2300.00,'abdul','kurunegala','2024-11-17 12:26:12'),(13,'2411170009',-500.00,'Unknown',0.00,0.00,-500.00,0.00,0.00,'Return Payment',-500.00,'abdul','kurunegala','2024-11-17 12:31:18'),(14,'2411170010',2250.00,'Unknown',0.00,0.00,2250.00,3000.00,0.00,'Cash Payment',750.00,'abdul','kurunegala','2024-11-17 12:41:24'),(15,'2411170011',-6300.00,'Unknown',0.00,0.00,-6300.00,0.00,0.00,'Return Payment',-6300.00,'abdul','kurunegala','2024-11-17 12:42:59'),(16,'2411170012',0.00,'Unknown',0.00,0.00,0.00,0.00,0.00,'Cash Payment',0.00,'abdul','kurunegala','2024-11-17 12:48:44');
+INSERT INTO `sales` VALUES (1,'2411240001',-560.00,'Unknown',0.00,0.00,-560.00,0.00,0.00,'Return Payment',-560.00,'abdul','kurunegala','2024-11-24 08:33:08'),(2,'2411240002',500.00,'Unknown',0.00,0.00,500.00,80.00,120.00,'Credit Payment',-300.00,'abdul','kurunegala','2024-11-24 18:49:05'),(3,'2411240003',280.00,'101',0.00,0.00,280.00,0.00,0.00,'Cash Payment',280.00,'abdul','kurunegala','2024-11-24 20:37:55'),(4,'2411240004',850.00,'101',0.00,0.00,850.00,0.00,0.00,'Credit Payment',850.00,'abdul','kurunegala','2024-11-24 20:38:06'),(5,'2411240005',280.00,'101',0.00,0.00,280.00,0.00,0.00,'Credit Payment',280.00,'abdul','kurunegala','2024-11-24 20:38:17'),(6,'2411240006',280.00,'101',10.00,28.00,252.00,32.00,0.00,'Credit Payment',-248.00,'abdul','kurunegala','2024-11-24 20:44:37'),(7,'2411240007',300.00,'18',0.00,0.00,300.00,0.00,0.00,'Credit Payment',300.00,'abdul','kurunegala','2024-11-24 21:07:15'),(8,'2411240008',280.00,'99',0.00,0.00,280.00,0.00,0.00,'Credit Payment',280.00,'abdul','kurunegala','2024-11-24 21:08:01'),(9,'2411240009',280.00,'1',0.00,0.00,280.00,0.00,0.00,'Credit Payment',280.00,'abdul','kurunegala','2024-11-24 21:11:48'),(10,'2411240010',300.00,'200',0.00,0.00,300.00,140.00,120.00,'Credit Payment',-40.00,'abdul','kurunegala','2024-11-24 21:31:34'),(11,'2411240011',250.00,'200',0.00,0.00,250.00,110.00,90.00,'Credit Payment',-50.00,'abdul','kurunegala','2024-11-24 21:31:58'),(13,'2411250001',10.00,'200',0.00,0.00,10.00,5.00,3.00,'Credit Payment',-2.00,'abdul','kurunegala','2024-11-25 19:50:50');
 /*!40000 ALTER TABLE `sales` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -61,4 +61,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2024-11-17 18:06:20
+-- Dump completed on 2024-11-26  8:55:07

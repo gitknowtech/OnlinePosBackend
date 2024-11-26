@@ -66,29 +66,52 @@ router.post('/create_batches', (req, res) => {
   
   
   // Delete batch API
+// Delete batch API
 router.delete('/delete_batch', (req, res) => {
-    const { batchName } = req.body;
-  
-    // Validation
-    if (!batchName) {
+  const { batchName } = req.body;
+
+  // Validation
+  if (!batchName) {
       return res.status(400).json({ message: 'Batch name is required' });
-    }
-  
-    const query = 'DELETE FROM batches WHERE batchName = ?';
-    db.query(query, [batchName], (err, result) => {
+  }
+
+  // Check if batch is associated with any products
+  const checkBatchQuery = 'SELECT COUNT(*) AS productCount FROM products WHERE batchNumber = ?';
+
+  db.query(checkBatchQuery, [batchName], (err, result) => {
       if (err) {
-        console.error('Error deleting batch:', err);
-        return res.status(500).json({ message: 'Error deleting batch' });
+          console.error('Error checking batch association with products:', err);
+          return res.status(500).json({ message: 'Error checking batch association' });
       }
-  
-      if (result.affectedRows === 0) {
-        return res.status(404).json({ message: 'Batch not found' });
+
+      // If batch is associated with products, return an error
+      if (result[0].productCount > 0) {
+          return res.status(400).json({ 
+              message: 'Cannot delete batch. It is associated with products in the products table.' 
+          });
       }
-  
-      res.status(200).json({ message: `Batch "${batchName}" has been deleted successfully.` });
-    });
+
+      // Proceed to delete the batch if no association exists
+      const deleteBatchQuery = 'DELETE FROM batches WHERE batchName = ?';
+
+      db.query(deleteBatchQuery, [batchName], (err, result) => {
+          if (err) {
+              console.error('Error deleting batch:', err);
+              return res.status(500).json({ message: 'Error deleting batch' });
+          }
+
+          if (result.affectedRows === 0) {
+              return res.status(404).json({ message: 'Batch not found' });
+          }
+
+          res.status(200).json({ message: `Batch "${batchName}" has been deleted successfully.` });
+      });
   });
-  
+});
+
+
+
+
   
   router.put('/update_batch/:id', (req, res) => {
     const batchId = req.params.id;

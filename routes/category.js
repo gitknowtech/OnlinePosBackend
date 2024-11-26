@@ -157,25 +157,43 @@ router.get("/get_categories", (req, res) => {
   
   
   
-router.delete("/delete_category", (req, res) => {
+  router.delete("/delete_category", (req, res) => {
     const { catName } = req.body;
   
-    const deleteQuery = "DELETE FROM categories WHERE catName = ?";
+    // Query to check if the category is associated with any products
+    const checkCategoryQuery =
+      "SELECT COUNT(*) AS productCount FROM products WHERE selectedCategory = ?";
   
-    db.query(deleteQuery, [catName], (err, result) => {
+    db.query(checkCategoryQuery, [catName], (err, result) => {
       if (err) {
-        console.error('Error deleting category from database:', err);
-        return res.status(500).json({ message: "Error deleting category" });
+        console.error("Error checking category association:", err);
+        return res.status(500).json({ message: "Error checking category association" });
       }
   
-      if (result.affectedRows === 0) {
-        return res.status(404).json({ message: "Category not found" });   
+      // If category is associated with any product, return an error
+      if (result[0].productCount > 0) {
+        return res
+          .status(400)
+          .json({ message: "Cannot delete category. It is associated with products." });
       }
   
-      return res.status(200).json({ message: "Category deleted successfully" });
+      // Proceed to delete the category if no association exists
+      const deleteQuery = "DELETE FROM categories WHERE catName = ?";
+      db.query(deleteQuery, [catName], (err, result) => {
+        if (err) {
+          console.error("Error deleting category from database:", err);
+          return res.status(500).json({ message: "Error deleting category" });
+        }
+  
+        if (result.affectedRows === 0) {
+          return res.status(404).json({ message: "Category not found" });
+        }
+  
+        return res.status(200).json({ message: "Category deleted successfully" });
+      });
     });
   });
-
+  
 
   
 module.exports = router;

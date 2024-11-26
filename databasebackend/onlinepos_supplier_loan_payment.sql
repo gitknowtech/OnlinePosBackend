@@ -16,30 +16,31 @@
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 --
--- Table structure for table `stores`
+-- Table structure for table `supplier_loan_payment`
 --
 
-DROP TABLE IF EXISTS `stores`;
+DROP TABLE IF EXISTS `supplier_loan_payment`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `stores` (
+CREATE TABLE `supplier_loan_payment` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `storeName` varchar(1000) NOT NULL,
-  `user` varchar(255) NOT NULL,
-  `store` varchar(255) NOT NULL,
+  `generatedId` varchar(255) NOT NULL,
+  `paymentAmount` decimal(10,2) NOT NULL,
+  `referenceNumber` varchar(255) NOT NULL,
   `saveTime` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  PRIMARY KEY (`id`),
+  KEY `generatedId` (`generatedId`),
+  CONSTRAINT `supplier_loan_payment_ibfk_1` FOREIGN KEY (`generatedId`) REFERENCES `supplier_loan` (`generatedId`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Dumping data for table `stores`
+-- Dumping data for table `supplier_loan_payment`
 --
 
-LOCK TABLES `stores` WRITE;
-/*!40000 ALTER TABLE `stores` DISABLE KEYS */;
-INSERT INTO `stores` VALUES (4,'Wariyapolanew','abdul','Wariyapola','2024-10-18 11:55:39'),(5,'Kurunegala','abdul','Wariyapola','2024-10-18 11:56:55');
-/*!40000 ALTER TABLE `stores` ENABLE KEYS */;
+LOCK TABLES `supplier_loan_payment` WRITE;
+/*!40000 ALTER TABLE `supplier_loan_payment` DISABLE KEYS */;
+/*!40000 ALTER TABLE `supplier_loan_payment` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 

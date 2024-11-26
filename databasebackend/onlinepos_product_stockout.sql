@@ -31,8 +31,9 @@ CREATE TABLE `product_stockout` (
   `type` varchar(255) DEFAULT NULL,
   `store` varchar(255) DEFAULT NULL,
   `date` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `invoiceId` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`stockOutId`)
-) ENGINE=InnoDB AUTO_INCREMENT=24 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -41,7 +42,7 @@ CREATE TABLE `product_stockout` (
 
 LOCK TABLES `product_stockout` WRITE;
 /*!40000 ALTER TABLE `product_stockout` DISABLE KEYS */;
-INSERT INTO `product_stockout` VALUES (20,12,'Slim Fit Jeans','34856',2.0000,'Selling Product','kurunegala','2024-11-17 06:36:04'),(21,12,'Slim Fit Jeans','34856',6.0000,'Selling Product','kurunegala','2024-11-17 06:56:12'),(22,12,'Slim Fit Jeans','34856',1.0000,'Selling Product','kurunegala','2024-11-17 07:01:18'),(23,12,'Slim Fit Jeans','34856',5.0000,'Selling Product','kurunegala','2024-11-17 07:11:24');
+INSERT INTO `product_stockout` VALUES (1,12,'Slim Fit Jeans','34856',1.0000,'Selled Item','kurunegala','2024-11-25 14:20:50','2411250001');
 /*!40000 ALTER TABLE `product_stockout` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -54,4 +55,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2024-11-17 18:06:20
+-- Dump completed on 2024-11-26  8:55:06

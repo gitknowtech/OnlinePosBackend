@@ -31,8 +31,9 @@ CREATE TABLE `product_stockin` (
   `type` varchar(255) DEFAULT NULL,
   `store` varchar(255) DEFAULT NULL,
   `date` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `invoiceId` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`stockInId`)
-) ENGINE=InnoDB AUTO_INCREMENT=38 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -41,7 +42,7 @@ CREATE TABLE `product_stockin` (
 
 LOCK TABLES `product_stockin` WRITE;
 /*!40000 ALTER TABLE `product_stockin` DISABLE KEYS */;
-INSERT INTO `product_stockin` VALUES (34,12,'Slim Fit Jeans','34856',2.0000,'StockIn','kurunegala','2024-11-17 06:36:24'),(35,12,'Slim Fit Jeans','34856',1.0000,'Return Item','kurunegala','2024-11-17 06:55:41'),(36,12,'Slim Fit Jeans','34856',2.0000,'Return Item','kurunegala','2024-11-17 07:01:18'),(37,12,'Slim Fit Jeans','34856',14.0000,'Return Item','kurunegala','2024-11-17 07:12:59');
+INSERT INTO `product_stockin` VALUES (1,1,'Sleeve Shirt ','08145',2.0000,'ReturnItem','kurunegala','2024-11-25 14:20:50','2411250001');
 /*!40000 ALTER TABLE `product_stockin` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -54,4 +55,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2024-11-17 18:06:20
+-- Dump completed on 2024-11-26  8:55:07

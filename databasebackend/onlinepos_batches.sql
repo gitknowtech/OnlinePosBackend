@@ -29,7 +29,7 @@ CREATE TABLE `batches` (
   `store` varchar(255) NOT NULL,
   `saveTime` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -38,7 +38,7 @@ CREATE TABLE `batches` (
 
 LOCK TABLES `batches` WRITE;
 /*!40000 ALTER TABLE `batches` DISABLE KEYS */;
-INSERT INTO `batches` VALUES (3,'241006','abdul','Wariyapola','2024-10-06 07:09:37'),(5,'241018','abdul','Wariyapola','2024-10-18 16:51:02');
+INSERT INTO `batches` VALUES (3,'241006','abdul','Wariyapola','2024-10-06 07:09:37'),(5,'241018','abdul','Wariyapola','2024-10-18 16:51:02'),(6,'241050','abdul','kurunegala','2024-11-26 08:23:20');
 /*!40000 ALTER TABLE `batches` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -51,4 +51,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2024-11-17 18:06:17
+-- Dump completed on 2024-11-26  8:55:07

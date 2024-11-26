@@ -16,30 +16,36 @@
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 --
--- Table structure for table `stores`
+-- Table structure for table `supplier_loan`
 --
 
-DROP TABLE IF EXISTS `stores`;
+DROP TABLE IF EXISTS `supplier_loan`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `stores` (
+CREATE TABLE `supplier_loan` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `storeName` varchar(1000) NOT NULL,
-  `user` varchar(255) NOT NULL,
-  `store` varchar(255) NOT NULL,
+  `generatedId` varchar(255) NOT NULL,
+  `supId` varchar(255) NOT NULL,
+  `supName` varchar(255) NOT NULL,
+  `loanAmount` decimal(10,2) NOT NULL,
+  `cashAmount` decimal(10,2) DEFAULT '0.00',
+  `totalAmount` decimal(10,2) GENERATED ALWAYS AS ((`loanAmount` + `cashAmount`)) STORED,
+  `billNumber` varchar(255) NOT NULL,
+  `description` text,
+  `filePath` varchar(255) DEFAULT NULL,
   `saveTime` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `generatedId` (`generatedId`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Dumping data for table `stores`
+-- Dumping data for table `supplier_loan`
 --
 
-LOCK TABLES `stores` WRITE;
-/*!40000 ALTER TABLE `stores` DISABLE KEYS */;
-INSERT INTO `stores` VALUES (4,'Wariyapolanew','abdul','Wariyapola','2024-10-18 11:55:39'),(5,'Kurunegala','abdul','Wariyapola','2024-10-18 11:56:55');
-/*!40000 ALTER TABLE `stores` ENABLE KEYS */;
+LOCK TABLES `supplier_loan` WRITE;
+/*!40000 ALTER TABLE `supplier_loan` DISABLE KEYS */;
+/*!40000 ALTER TABLE `supplier_loan` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 

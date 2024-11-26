@@ -30,7 +30,7 @@ CREATE TABLE `supplier_purchase_payment` (
   `saved_time` datetime NOT NULL,
   PRIMARY KEY (`id`),
   KEY `generatedid` (`generatedid`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -39,7 +39,6 @@ CREATE TABLE `supplier_purchase_payment` (
 
 LOCK TABLES `supplier_purchase_payment` WRITE;
 /*!40000 ALTER TABLE `supplier_purchase_payment` DISABLE KEYS */;
-INSERT INTO `supplier_purchase_payment` VALUES (2,'92790',500.00,'1425','2024-11-17 15:40:29');
 /*!40000 ALTER TABLE `supplier_purchase_payment` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -52,4 +51,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2024-11-17 18:06:18
+-- Dump completed on 2024-11-26  8:55:06

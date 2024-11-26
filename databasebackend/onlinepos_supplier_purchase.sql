@@ -35,7 +35,7 @@ CREATE TABLE `supplier_purchase` (
   PRIMARY KEY (`id`),
   KEY `generatedid` (`generatedid`),
   CONSTRAINT `supplier_purchase_ibfk_1` FOREIGN KEY (`generatedid`) REFERENCES `supplier_purchase_last` (`generatedid`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -44,7 +44,6 @@ CREATE TABLE `supplier_purchase` (
 
 LOCK TABLES `supplier_purchase` WRITE;
 /*!40000 ALTER TABLE `supplier_purchase` DISABLE KEYS */;
-INSERT INTO `supplier_purchase` VALUES (3,'92790','2411170001','001','new product',100.00,50.0000,5000.00,'003'),(4,'92790','2411170001','002','new product 2',150.00,10.0000,1500.00,'003');
 /*!40000 ALTER TABLE `supplier_purchase` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -57,4 +56,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2024-11-17 18:06:19
+-- Dump completed on 2024-11-26  8:55:07
