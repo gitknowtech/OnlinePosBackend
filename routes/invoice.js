@@ -1121,7 +1121,30 @@ router.get('/check_invoice/:invoiceId', (req, res) => {
 
 
 
+// Fetch sales data for chart
+router.get('/fetch_sales_chart_table', (req, res) => {
+  const { Store, startDate, endDate } = req.query;
 
+  if (!Store || !startDate || !endDate) {
+    return res.status(400).json({ message: "Store, startDate, and endDate are required." });
+  }
+
+  const query = `
+    SELECT invoiceId, netAmount, createdAt
+    FROM sales
+    WHERE Store = ? AND createdAt BETWEEN ? AND ?
+    ORDER BY createdAt ASC
+  `;
+
+  db.query(query, [Store, startDate, endDate], (err, results) => {
+    if (err) {
+      console.error("Error fetching sales data:", err);
+      return res.status(500).json({ message: "Error fetching sales data." });
+    }
+
+    res.status(200).json(results);
+  });
+});
 
 
 module.exports = router;

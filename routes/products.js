@@ -800,6 +800,8 @@ router.get('/fetch_products_by_category', (req, res) => {
 
 
 
+
+
 // Get Opening Balance
 router.get('/product/:productId/opening-balance', (req, res) => {
   const { productId } = req.params;
@@ -864,6 +866,180 @@ router.get('/product/:productId/stock-out-get-chart', (req, res) => {
 });
 
 
+
+router.get('/search_stock_out_chart', (req, res) => {
+  const searchTerm = req.query.query;
+
+  if (!searchTerm || searchTerm.trim() === '') {
+    return res.status(400).json({ message: 'Query parameter is required.' });
+  }
+
+  // Construct SQL query to search for products, including imageLink
+  const searchQuery = `
+    SELECT 
+      productId, 
+      productName, 
+      barcode, 
+      imageLink,       -- Include imageLink here
+      mrpPrice AS salePrice, 
+      stockQuantity AS quantity, 
+      wholesalePrice, 
+      discountPrice 
+    FROM 
+      products 
+    WHERE 
+      productName LIKE ? OR 
+      barcode LIKE ? OR 
+      productId LIKE ? OR 
+      mrpPrice LIKE ?
+  `;
+
+  // Prepare the search term for partial matching
+  const searchValue = `%${searchTerm}%`;
+
+  // Execute the query with prepared statements to prevent SQL injection
+  db.query(searchQuery, [searchValue, searchValue, searchValue, searchValue], (err, results) => {
+    if (err) {
+      console.error('Error executing search query:', err);
+      return res.status(500).json({ message: 'Error executing search query', error: err });
+    }
+
+    // Return the search results
+    res.status(200).json(results);
+  });
+});
+
+
+
+
+
+
+router.get('/search_stock_in', (req, res) => {
+  const searchTerm = req.query.query;
+
+  if (!searchTerm || searchTerm.trim() === '') {
+    return res.status(400).json({ message: 'Query parameter is required.' });
+  }
+
+  // Construct SQL query to search for products, including imageLink
+  const searchQuery = `
+    SELECT 
+      productId, 
+      productName, 
+      barcode, 
+      imageLink,       -- Include imageLink here
+      mrpPrice AS salePrice, 
+      stockQuantity AS quantity, 
+      wholesalePrice, 
+      discountPrice 
+    FROM 
+      products 
+    WHERE 
+      productName LIKE ? OR 
+      barcode LIKE ? OR 
+      CAST(productId AS CHAR) LIKE ? OR 
+      CAST(mrpPrice AS CHAR) LIKE ?
+    LIMIT 10
+  `;
+
+  // Prepare the search term for partial matching
+  const searchValue = `%${searchTerm}%`;
+
+  // Execute the query with prepared statements to prevent SQL injection
+  db.query(searchQuery, [searchValue, searchValue, searchValue, searchValue], (err, results) => {
+    if (err) {
+      console.error('Error executing search_stock_in query:', err);
+      return res.status(500).json({ message: 'Error executing search query', error: err });
+    }
+
+    // Return the search results
+    res.status(200).json(results);
+  });
+});
+
+
+
+
+router.get('/product/:productId/stock-in-get-chart', (req, res) => {
+  const { productId } = req.params;
+  const { startDate, endDate } = req.query;
+
+  // Base query
+  let stockInQuery = `
+    SELECT stockInId, quantity, date, invoiceId
+    FROM product_stockin
+    WHERE productId = ?
+  `;
+  let queryParams = [productId];
+
+  // Add date range filtering if provided
+  if (startDate && endDate) {
+    stockInQuery += ` AND date BETWEEN ? AND ?`;
+    queryParams.push(startDate, endDate);
+  } else if (startDate) {
+    stockInQuery += ` AND date >= ?`;
+    queryParams.push(startDate);
+  } else if (endDate) {
+    stockInQuery += ` AND date <= ?`;
+    queryParams.push(endDate);
+  }
+
+  stockInQuery += ` ORDER BY date ASC`;
+
+  db.query(stockInQuery, queryParams, (err, results) => {
+    if (err) {
+      console.error('Error fetching stock in data:', err);
+      return res.status(500).json({ message: 'Server error' });
+    }
+    res.json(results);
+  });
+});
+
+
+
+
+router.get('/search_stock_in_quanity_chart', (req, res) => {
+  const searchTerm = req.query.query;
+
+  if (!searchTerm || searchTerm.trim() === '') {
+    return res.status(400).json({ message: 'Query parameter is required.' });
+  }
+
+  // Construct SQL query to search for products, including imageLink
+  const searchQuery = `
+    SELECT 
+      productId, 
+      productName, 
+      barcode, 
+      imageLink,       -- Include imageLink here
+      mrpPrice AS salePrice, 
+      stockQuantity AS quantity, 
+      wholesalePrice, 
+      discountPrice 
+    FROM 
+      products 
+    WHERE 
+      productName LIKE ? OR 
+      barcode LIKE ? OR 
+      CAST(productId AS CHAR) LIKE ? OR 
+      CAST(mrpPrice AS CHAR) LIKE ?
+    LIMIT 10
+  `;
+
+  // Prepare the search term for partial matching
+  const searchValue = `%${searchTerm}%`;
+
+  // Execute the query with prepared statements to prevent SQL injection
+  db.query(searchQuery, [searchValue, searchValue, searchValue, searchValue], (err, results) => {
+    if (err) {
+      console.error('Error executing search_stock_in query:', err);
+      return res.status(500).json({ message: 'Error executing search query', error: err });
+    }
+
+    // Return the search results
+    res.status(200).json(results);
+  });
+});
 
 
 
