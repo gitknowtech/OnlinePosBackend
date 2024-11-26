@@ -800,5 +800,71 @@ router.get('/fetch_products_by_category', (req, res) => {
 
 
 
+// Get Opening Balance
+router.get('/product/:productId/opening-balance', (req, res) => {
+  const { productId } = req.params;
+
+  const balanceQuery = `
+    SELECT productId, productName, openingBalance
+    FROM opening_balance_table
+    WHERE productId = ?
+    LIMIT 1
+  `;
+
+  db.query(balanceQuery, [productId], (err, results) => {
+    if (err) {
+      console.error('Error fetching opening balance:', err);
+      return res.status(500).json({ message: 'Server error' });
+    }
+    if (results.length === 0) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+    res.json(results[0]);
+  });
+});
+
+
+
+
+
+// **Updated Stock Out Data Endpoint with Date Range Filtering**
+router.get('/product/:productId/stock-out-get-chart', (req, res) => {
+  const { productId } = req.params;
+  const { startDate, endDate } = req.query;
+
+  // Base query
+  let stockOutQuery = `
+    SELECT stockOutId, quantity, date, invoiceId
+    FROM product_stockout
+    WHERE productId = ?
+  `;
+  let queryParams = [productId];
+
+  // Add date range filtering if provided
+  if (startDate && endDate) {
+    stockOutQuery += ` AND date BETWEEN ? AND ?`;
+    queryParams.push(startDate, endDate);
+  } else if (startDate) {
+    stockOutQuery += ` AND date >= ?`;
+    queryParams.push(startDate);
+  } else if (endDate) {
+    stockOutQuery += ` AND date <= ?`;
+    queryParams.push(endDate);
+  }
+
+  stockOutQuery += ` ORDER BY date ASC`;
+
+  db.query(stockOutQuery, queryParams, (err, results) => {
+    if (err) {
+      console.error('Error fetching stock out data:', err);
+      return res.status(500).json({ message: 'Server error' });
+    }
+    res.json(results);
+  });
+});
+
+
+
+
 
 module.exports = router;

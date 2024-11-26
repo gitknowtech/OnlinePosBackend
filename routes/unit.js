@@ -32,26 +32,44 @@ createUnitsTable();
 
 
 
-
 router.delete("/delete_unit", (req, res) => {
-    const { unitName } = req.body;
+  const { unitName } = req.body;
 
-    const deleteQuery = "DELETE FROM units WHERE unitName = ?";
+  if (!unitName) {
+      return res.status(400).json({ message: "Unit name is required" });
+  }
 
-    db.query(deleteQuery, [unitName], (err, result) => {
-        if (err) {
-            console.error('Error deleting unit from database:', err);
-            return res.status(500).json({ message: "Error deleting unit" });
-        }
+  // Check if the unit is associated with the products table
+  const checkQuery = "SELECT COUNT(*) AS count FROM products WHERE selectedUnits = ?";
+  db.query(checkQuery, [unitName], (err, results) => {
+      if (err) {
+          console.error("Error checking unit association in products table:", err);
+          return res.status(500).json({ message: "Error checking unit association" });
+      }
 
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ message: "Unit not found" });
-        }
+      const { count } = results[0];
+      if (count > 0) {
+          return res.status(400).json({
+              message: "Cannot delete the unit because it is associated with products",
+          });
+      }
 
-        return res.status(200).json({ message: "Unit deleted successfully" });
-    });
+      // If not associated, proceed with deletion
+      const deleteQuery = "DELETE FROM units WHERE unitName = ?";
+      db.query(deleteQuery, [unitName], (err, result) => {
+          if (err) {
+              console.error("Error deleting unit from database:", err);
+              return res.status(500).json({ message: "Error deleting unit" });
+          }
+
+          if (result.affectedRows === 0) {
+              return res.status(404).json({ message: "Unit not found" });
+          }
+
+          return res.status(200).json({ message: "Unit deleted successfully" });
+      });
+  });
 });
-
 
 
 
