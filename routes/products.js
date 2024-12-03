@@ -637,6 +637,7 @@ router.get('/search', (req, res) => {
 });
 
 
+// Updated /search_invoice_by_store route to include imageLink
 router.get('/search_invoice_by_store', (req, res) => {
   const { query, store } = req.query;
 
@@ -644,11 +645,22 @@ router.get('/search_invoice_by_store', (req, res) => {
     return res.status(400).json({ message: "Search query and store are required." });
   }
 
-  // SQL query to search by product name, barcode, or product ID for a specific store with "active" status
+  // Updated SQL query to include imageLink
   const sqlQuery = `
-    SELECT productId, productName, barcode, mrpPrice, costPrice, discountPrice, wholesalePrice, lockedPrice, store
+    SELECT 
+      productId, 
+      productName, 
+      barcode, 
+      mrpPrice, 
+      costPrice, 
+      discountPrice, 
+      wholesalePrice, 
+      lockedPrice, 
+      store, 
+      imageLink
     FROM products
-    WHERE (productName LIKE ? OR barcode LIKE ? OR productId LIKE ?)
+    WHERE 
+      (productName LIKE ? OR barcode LIKE ? OR productId LIKE ?)
       AND store = ?
       AND status = 'active'
     LIMIT 10
@@ -661,10 +673,9 @@ router.get('/search_invoice_by_store', (req, res) => {
       console.error("Error fetching product suggestions:", err); 
       return res.status(500).json({ message: "Failed to fetch product suggestions." });
     }
-    res.status(200).json(results); // Return matching products
+    res.status(200).json(results); // Return matching products including imageLink
   });
 });
-
 
 
 
