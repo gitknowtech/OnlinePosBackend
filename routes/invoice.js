@@ -1147,4 +1147,63 @@ router.get('/fetch_sales_chart_table', (req, res) => {
 });
 
 
+
+router.get("/last", (req, res) => {
+  const query = `
+    SELECT * FROM invoices
+    WHERE invoiceId = (SELECT invoiceId FROM invoices ORDER BY id DESC LIMIT 1);
+  `;
+
+  db.query(query, (err, results) => {
+    if (err) {
+      return res.status(500).json({ message: "Failed to fetch invoice data", error: err });
+    }
+    res.json(results);
+  });
+});
+
+
+router.get("/fetchInvoiceData", (req, res) => {
+  const { invoiceId } = req.query;
+
+  if (!invoiceId) {
+    return res.status(400).json({ message: "Invoice ID is required" });
+  }
+
+  const fetchSalesQuery = `
+    SELECT * FROM sales WHERE invoiceId = ?;
+  `;
+  const fetchInvoicesQuery = `
+    SELECT * FROM invoices WHERE invoiceId = ?;
+  `;
+  const fetchCompanyQuery = `
+    SELECT * FROM companies LIMIT 1;
+  `;
+
+  db.query(fetchSalesQuery, [invoiceId], (err, salesResults) => {
+    if (err || salesResults.length === 0) {
+      return res.status(500).json({ message: "Failed to fetch sales data", error: err });
+    }
+
+    db.query(fetchInvoicesQuery, [invoiceId], (err, invoiceResults) => {
+      if (err || invoiceResults.length === 0) {
+        return res.status(500).json({ message: "Failed to fetch invoice data", error: err });
+      }
+
+      db.query(fetchCompanyQuery, (err, companyResults) => {
+        if (err || companyResults.length === 0) {
+          return res.status(500).json({ message: "Failed to fetch company data", error: err });
+        }
+
+        res.json({
+          sales: salesResults[0],
+          invoices: invoiceResults,
+          company: companyResults[0],
+        });
+      });
+    });
+  });
+});
+
+
 module.exports = router;
