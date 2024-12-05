@@ -8,6 +8,9 @@ const crypto = require("crypto");
 
 
 const router = express.Router();
+const relativePath = 'uploads/supplier_loan/unique-name.pdf';
+const absolutePath = path.join(__dirname, "../", relativePath);
+
 
 
 // Create suppliers table if it doesn't exist
@@ -158,6 +161,7 @@ const createSupplierLoanPaymentTable = () => {
     generatedId VARCHAR(255) NOT NULL,
     paymentAmount DECIMAL(10, 2) NOT NULL,
     referenceNumber VARCHAR(255) NOT NULL,
+    filePath VARCHAR(1000) ,
     saveTime DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (generatedId) REFERENCES supplier_loan(generatedId)
 );
@@ -765,9 +769,12 @@ const upload = multer({ storage });
 
 
 // Add Supplier Loan with File Upload
+// In add_loan route
 router.post("/add_loan", upload.single("file"), (req, res) => {
   const { supId, supName, loanAmount, billNumber, description, cashAmount } = req.body;
-  const filePath = req.file ? req.file.path : null; // Save absolute path
+
+  // If a file is uploaded, just store the filename, not the entire path
+  const fileName = req.file ? req.file.filename : null;
 
   if (!supId || !supName || !loanAmount || !billNumber) {
     return res.status(400).json({ message: "Missing required fields." });
@@ -780,10 +787,20 @@ router.post("/add_loan", upload.single("file"), (req, res) => {
     INSERT INTO supplier_loan (generatedId, supId, supName, loanAmount, cashAmount, billNumber, description, filePath)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `;
-
+  
+  // Store only the filename in the database
   db.query(
     query,
-    [generatedId, supId, supName, loanAmount, cashAmount || 0, billNumber, description, filePath],
+    [
+      generatedId,
+      supId,
+      supName,
+      loanAmount,
+      cashAmount || 0,
+      billNumber,
+      description,
+      fileName // <- only the filename
+    ],
     (err, result) => {
       if (err) {
         console.error("Error saving supplier loan:", err);
@@ -800,23 +817,23 @@ router.post("/add_loan", upload.single("file"), (req, res) => {
 
 
 
-
-// Serve Uploaded Files
 router.get("/view_file", (req, res) => {
-  const filePath = req.query.filePath;
+  const fileName = req.query.filePath; // This now represents just the filename
 
-  if (!filePath) {
+  if (!fileName) {
     return res.status(400).json({ message: "File path is required." });
   }
 
-  // Serve file from absolute path
-  fs.access(filePath, fs.constants.F_OK, (err) => {
+  // Reconstruct the absolute path from the stored filename
+  const absolutePath = path.join(__dirname, "../uploads/supplier_loan", fileName);
+
+  fs.access(absolutePath, fs.constants.F_OK, (err) => {
     if (err) {
       console.error("Error accessing file:", err);
       return res.status(404).json({ message: "File not found." });
     }
 
-    res.sendFile(filePath, (sendErr) => {
+    res.sendFile(absolutePath, (sendErr) => {
       if (sendErr) {
         console.error("Error sending file:", sendErr);
         return res.status(500).json({ message: "Error serving file." });
@@ -824,6 +841,31 @@ router.get("/view_file", (req, res) => {
     });
   });
 });
+
+router.get("/view_file_new", (req, res) => {
+  const fileName = req.query.filePath; // This now is just the filename as well
+
+  if (!fileName) {
+    return res.status(400).json({ message: "File path is required." });
+  }
+
+  const absolutePath = path.join(__dirname, "../uploads/supplier_loan", fileName);
+
+  fs.access(absolutePath, fs.constants.F_OK, (err) => {
+    if (err) {
+      console.error("Error accessing file:", err);
+      return res.status(404).json({ message: "File not found." });
+    }
+
+    res.sendFile(absolutePath, (sendErr) => {
+      if (sendErr) {
+        console.error("Error sending file:", sendErr);
+        return res.status(500).json({ message: "Error serving file." });
+      }
+    });
+  });
+});
+
 
 
 
@@ -849,7 +891,6 @@ router.put("/update_supplier_loan/:id", (req, res) => {
     res.status(200).json({ message: "Loan updated successfully." });
   });
 });
-
 
 
 
@@ -903,16 +944,14 @@ router.delete("/delete_supplier_loan/:id", (req, res) => {
         });
       }
 
-      // Collect unique file paths
-      const filePaths = [...new Set(results.map((row) => row.loanFilePath || row.paymentFilePath))]
-        .filter(Boolean); // Remove null or undefined file paths
+      // Collect unique file paths (these are now just filenames, not absolute paths)
+      const filePaths = [...new Set(results.map((row) => row.loanFilePath || row.paymentFilePath))].filter(Boolean);
 
       // Function to delete files
       const deleteFiles = async (paths) => {
-        for (const filePath of paths) {
-          const absolutePath = path.isAbsolute(filePath)
-            ? filePath // Use as-is if already absolute
-            : path.join(__dirname, "../", filePath); // Prepend base path if relative
+        for (const fileName of paths) {
+          // Construct the absolute path from the known uploads directory
+          const absolutePath = path.join(__dirname, "../uploads/supplier_loan", fileName);
 
           try {
             await fs.promises.unlink(absolutePath);
@@ -1034,7 +1073,7 @@ router.get("/get_loans_by_date/:supplierId", (req, res) => {
 
 router.post("/add_supplier_loan_payment", upload.single("file"), async (req, res) => {
   const { generatedId, paymentAmount, referenceNumber } = req.body;
-  const filePath = req.file ? `/uploads/supplier_loan/${req.file.filename}` : null;
+  const fileName = req.file ? req.file.filename : null; // Only store filename
 
   if (!generatedId || !paymentAmount || !referenceNumber) {
     return res.status(400).json({ message: "Missing required fields." });
@@ -1049,15 +1088,16 @@ router.post("/add_supplier_loan_payment", upload.single("file"), async (req, res
       generatedId,
       paymentAmount,
       referenceNumber,
-      filePath,
+      fileName, // Store only the filename
     ]);
 
-    res.json({ message: "Payment record added successfully." }); // Always return JSON
+    res.json({ message: "Payment record added successfully." });
   } catch (error) {
     console.error("Error adding supplier_loan_payment:", error);
-    res.status(500).json({ message: "Failed to add payment record." }); // Always return JSON even for errors
+    res.status(500).json({ message: "Failed to add payment record." });
   }
 });
+
 
 
 router.put('/update_supplier_loan_new/:generatedId', async (req, res) => {
@@ -1080,6 +1120,8 @@ router.put('/update_supplier_loan_new/:generatedId', async (req, res) => {
     res.status(500).json({ message: 'Failed to update loan.' });
   }
 });
+
+
 
 
 // Route to fetch payment history for a specific generatedId
@@ -1107,6 +1149,8 @@ router.get("/get_loan_payment_history/:generatedId", (req, res) => {
   });
 });
 
+
+
 // DELETE: Remove payment and update supplier_loan
 router.delete("/delete_supplier_payment/:paymentId", (req, res) => {
   const { paymentId } = req.params;
@@ -1130,14 +1174,12 @@ router.delete("/delete_supplier_payment/:paymentId", (req, res) => {
     }
 
     const { filePath, generatedId } = selectResults[0];
-    console.log("File path to delete:", filePath);
+    console.log("File name to delete:", filePath);
     console.log("Generated ID:", generatedId);
 
-    // Attempt to delete the file if filePath exists
+    // If we have a filename, construct the absolute path
     if (filePath) {
-      const absolutePath = path.isAbsolute(filePath)
-        ? filePath
-        : path.join(__dirname, "../", filePath);
+      const absolutePath = path.join(__dirname, "../uploads/supplier_loan", filePath);
 
       console.log("Attempting to delete file at:", absolutePath);
 
@@ -1161,7 +1203,7 @@ router.delete("/delete_supplier_payment/:paymentId", (req, res) => {
       }
 
       // Update supplier_loan table
-      const paymentAmount = parseFloat(req.body.paymentAmount || 0); // Ensure paymentAmount is a valid number
+      const paymentAmount = parseFloat(req.body.paymentAmount || 0);
       db.query(updateLoanQuery, [paymentAmount, paymentAmount, generatedId], (updateErr) => {
         if (updateErr) {
           console.error("Error updating supplier_loan table:", updateErr);
@@ -1174,6 +1216,7 @@ router.delete("/delete_supplier_payment/:paymentId", (req, res) => {
     });
   });
 });
+
 
 // Export Router
 module.exports = router;
