@@ -1206,4 +1206,61 @@ router.get("/fetchInvoiceData", (req, res) => {
 });
 
 
+
+
+// GET /api/invoices/dashboard-stats
+router.get('/dashboard-stats', async (req, res) => {
+  try {
+    // Query for today's sales
+    const [todaySalesRows] = await db.query(
+      `SELECT IFNULL(SUM(totalAmount), 0) AS todaySales 
+       FROM invoices 
+       WHERE DATE(createdAt) = CURDATE();`
+    );
+
+    // Query for today's invoice count
+    const [todayInvoiceCountRows] = await db.query(
+      `SELECT COUNT(DISTINCT invoiceId) AS invoiceCount
+       FROM invoices
+       WHERE DATE(createdAt) = CURDATE();`
+    );
+
+    // Suppliers count
+    const [supplierCountRows] = await db.query(
+      `SELECT COUNT(*) AS supplierCount FROM suppliers;`
+    );
+
+    // Products count
+    const [productCountRows] = await db.query(
+      `SELECT COUNT(*) AS productCount FROM products;`
+    );
+
+    // Customers count
+    const [customerCountRows] = await db.query(
+      `SELECT COUNT(*) AS customerCount FROM customers;`
+    );
+
+    // Last Invoice
+    const [lastInvoiceRows] = await db.query(
+      `SELECT invoiceId 
+       FROM invoices 
+       ORDER BY createdAt DESC 
+       LIMIT 1;`
+    );
+
+    res.json({
+      todaySales: parseFloat(todaySalesRows[0]?.todaySales) || 0,
+      todayInvoice: parseInt(todayInvoiceCountRows[0]?.invoiceCount) || 0,
+      supplierCount: parseInt(supplierCountRows[0]?.supplierCount) || 0,
+      productCount: parseInt(productCountRows[0]?.productCount) || 0,
+      customerCount: parseInt(customerCountRows[0]?.customerCount) || 0,
+      lastInvoice: lastInvoiceRows.length > 0 ? lastInvoiceRows[0].invoiceId : null,
+    });
+  } catch (err) {
+    console.error("Error fetching dashboard stats:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+
 module.exports = router;
