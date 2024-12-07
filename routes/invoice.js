@@ -95,6 +95,29 @@ const createInvoicesTable = () => {
 };
 
 
+// Route to fetch today's sales
+router.get("/CurrentMonthSales", (req, res) => {
+  const query = `
+    SELECT 
+      (SELECT SUM(totalAmount) FROM invoices WHERE DATE(createdAt) = CURDATE()) AS totalAmount,
+      (SELECT SUM(discountAmount) FROM sales WHERE DATE(createdAt) = CURDATE()) AS totalDiscountAmount
+  `;
+
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error("Error fetching today's sales:", err);
+      return res.status(500).json({ message: "Failed to fetch today's sales", error: err });
+    }
+
+    const totalAmount = results[0].totalAmount || 0;
+    const totalDiscountAmount = results[0].totalDiscountAmount || 0;
+    const todaySales = parseFloat(totalAmount) - parseFloat(totalDiscountAmount);
+
+    res.json({ todaySales });
+  });
+});
+
+
 
 // Call the functions to create tables on server start
 createSalesTable();
@@ -1207,60 +1230,94 @@ router.get("/fetchInvoiceData", (req, res) => {
 
 
 
+router.get('/today_invoices_count', (req, res) => {
+  const query = `
+    SELECT COUNT(*) AS invoiceCount 
+    FROM invoices 
+    WHERE DATE(createdAt) = CURDATE()
+  `;
 
-// GET /api/invoices/dashboard-stats
-router.get('/dashboard-stats', async (req, res) => {
-  try {
-    // Query for today's sales
-    const [todaySalesRows] = await db.query(
-      `SELECT IFNULL(SUM(totalAmount), 0) AS todaySales 
-       FROM invoices 
-       WHERE DATE(createdAt) = CURDATE();`
-    );
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error("Error fetching invoice count:", err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
 
-    // Query for today's invoice count
-    const [todayInvoiceCountRows] = await db.query(
-      `SELECT COUNT(DISTINCT invoiceId) AS invoiceCount
-       FROM invoices
-       WHERE DATE(createdAt) = CURDATE();`
-    );
-
-    // Suppliers count
-    const [supplierCountRows] = await db.query(
-      `SELECT COUNT(*) AS supplierCount FROM suppliers;`
-    );
-
-    // Products count
-    const [productCountRows] = await db.query(
-      `SELECT COUNT(*) AS productCount FROM products;`
-    );
-
-    // Customers count
-    const [customerCountRows] = await db.query(
-      `SELECT COUNT(*) AS customerCount FROM customers;`
-    );
-
-    // Last Invoice
-    const [lastInvoiceRows] = await db.query(
-      `SELECT invoiceId 
-       FROM invoices 
-       ORDER BY createdAt DESC 
-       LIMIT 1;`
-    );
-
-    res.json({
-      todaySales: parseFloat(todaySalesRows[0]?.todaySales) || 0,
-      todayInvoice: parseInt(todayInvoiceCountRows[0]?.invoiceCount) || 0,
-      supplierCount: parseInt(supplierCountRows[0]?.supplierCount) || 0,
-      productCount: parseInt(productCountRows[0]?.productCount) || 0,
-      customerCount: parseInt(customerCountRows[0]?.customerCount) || 0,
-      lastInvoice: lastInvoiceRows.length > 0 ? lastInvoiceRows[0].invoiceId : null,
-    });
-  } catch (err) {
-    console.error("Error fetching dashboard stats:", err);
-    res.status(500).json({ error: "Internal server error" });
-  }
+    const count = results[0].invoiceCount;
+    res.json({ count });
+  });
 });
+
+
+
+// GET total product count
+router.get('/productcount', (req, res) => {
+  const query = `SELECT COUNT(*) AS productCount FROM products`; // Ensure 'products' is your table name
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error('Error fetching product count:', err);
+      return res.status(500).json({ message: 'Internal server error' });
+    }
+    const count = results[0].productCount;
+    res.json({ count });
+  });
+});
+
+
+
+// GET total customer count
+router.get('/customercount', (req, res) => {
+  const query = `SELECT COUNT(*) AS customerCount FROM customers`; // Ensure 'customers' is your table name
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error('Error fetching customer count:', err);
+      return res.status(500).json({ message: 'Internal server error' });
+    }
+    const count = results[0].customerCount;
+    res.json({ count });
+  });
+});
+
+
+
+// GET total supplier count
+router.get('/suppliercount', (req, res) => {
+  const query = `SELECT COUNT(*) AS supplierCount FROM suppliers`; // Ensure 'suppliers' is your table name
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error('Error fetching supplier count:', err);
+      return res.status(500).json({ message: 'Internal server error' });
+    }
+    const count = results[0].supplierCount;
+    res.json({ count });
+  });
+});
+
+
+// Route to fetch the last invoice ID
+router.get("/lastInvoiceId", (req, res) => {
+  const query = `
+    SELECT invoiceId 
+    FROM invoices 
+    ORDER BY createdAt DESC 
+    LIMIT 1
+  `;
+
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error("Error fetching last invoice ID:", err);
+      return res.status(500).json({ message: "Failed to fetch last invoice ID", error: err });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({ message: "No invoices found" });
+    }
+
+    res.json({ invoiceId: results[0].invoiceId });
+  });
+});
+
+
 
 
 module.exports = router;
