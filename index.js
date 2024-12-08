@@ -215,27 +215,78 @@ app.post('/create-admin', upload.single('Image'), async (req, res) => {
 
 //create user file
 app.post('/create-user', upload.single('Image'), async (req, res) => {
-  const { Name, Email, UserName, Password, Store, Type } = req.body; // 'Store' contains the storeName
+  const { Name, Email, UserName, Password, Store, Type } = req.body; // Use UserName directly
   const imagePath = req.file ? req.file.path : null;
 
   try {
     const { encryptedPassword, iv } = encryptPassword(Password); // Assume encryptPassword is defined
     const currentTime = moment().format('YYYY-MM-DD HH:mm:ss');
 
-    const insertQuery = `
+    // Insert user into `users` table
+    const insertUserQuery = `
       INSERT INTO users (Name, Email, UserName, Password, iv, Image, Type, Store, register_time, last_login)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     db.query(
-      insertQuery,
+      insertUserQuery,
       [Name, Email, UserName, encryptedPassword, iv, imagePath, Type, Store, currentTime, currentTime],
       (err, result) => {
         if (err) {
-          console.error('Database error:', err);
+          console.error('Database error during user creation:', err);
           return res.status(500).json({ error: 'Failed to save user to the database.' });
         }
-        res.status(200).json({ message: 'User account created successfully', id: result.insertId });
+
+        // Use the username to create the table
+        const userTableName = `user_${UserName}`;
+        const createTableQuery = `
+          CREATE TABLE ${userTableName} (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            value ENUM('yes', 'no') NOT NULL DEFAULT 'no'
+          )
+        `;
+
+        db.query(createTableQuery, (createErr) => {
+          if (createErr) {
+            console.error('Database error during table creation:', createErr);
+            return res.status(500).json({ error: 'Failed to create user-specific table.' });
+          }
+
+          // Predefine rows and insert into the new table
+          const rows = [
+            'Dashboard', 'Invoice', 'Sales', 'InvoiceList', 'SalesList',
+            'Stock', 'StockIn', 'StockOut', 'GetStock', 'OutStock',
+            'StockByCategory', 'StockBySupplier', 'StockByBatch', 'Product',
+            'ProductCard', 'ProductList', 'AddProduct', 'ManageBatch',
+            'ManageUnit', 'ManageCategory', 'RemovedProducts', 'Purchasing',
+            'SupplierList', 'AddSupplier', 'SupplierPayment', 'ManageBank',
+            'RemovedSupplier', 'User', 'AddUser', 'ManageUser', 'Customer',
+            'ManageCustomer', 'AddCustomer', 'CreditSales', 'CustomerBalance',
+            'Quotation', 'QuotationList', 'Charts', 'CustomerChart',
+            'StockChart', 'StockOutChart', 'SaleChart', 'Setting', 'Reports',
+            'Backup'
+          ];
+
+          const insertRowsQuery = `
+            INSERT INTO ${userTableName} (name, value)
+            VALUES ?
+          `;
+
+          const rowData = rows.map((rowName) => [rowName, 'no']);
+          db.query(insertRowsQuery, [rowData], (insertErr) => {
+            if (insertErr) {
+              console.error('Database error during row insertion:', insertErr);
+              return res.status(500).json({ error: 'Failed to populate user-specific table.' });
+            }
+
+            res.status(200).json({
+              message: 'User account created successfully with user-specific table.',
+              userName: UserName,
+              tableName: userTableName,
+            });
+          });
+        });
       }
     );
   } catch (err) {
@@ -243,7 +294,6 @@ app.post('/create-user', upload.single('Image'), async (req, res) => {
     res.status(500).json({ error: 'Server error. Please try again later.' });
   }
 });
-
 
 
 
@@ -512,6 +562,123 @@ app.put('/api/users/update_user/:UserName', async (req, res) => {
     res.status(500).json({ success: false, message: "Server error." });
   }
 });
+
+
+// Endpoint to Fetch All Users
+app.get('/api/users', (req, res) => {
+  const query = 'SELECT UserName FROM users';
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error('Error fetching users:', err);
+      return res.status(500).json({ error: 'Failed to fetch users.' });
+    }
+    res.status(200).json(results);
+  });
+});
+
+
+
+// Endpoint to Fetch Settings for a Specific User
+app.get('/api/settings/:username', (req, res) => {
+  const { username } = req.params;
+
+  // Validate Username
+  const isValidUsername = /^[a-zA-Z0-9_]+$/.test(username);
+  if (!isValidUsername) {
+    return res.status(400).json({ error: 'Invalid username.' });
+  }
+
+  const userTableName = `user_${username}`;
+  const query = `SELECT id, name, value FROM \`${userTableName}\``;
+
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error(`Error fetching settings for ${username}:`, err);
+
+      // Handle case where the table does not exist
+      if (err.code === 'ER_NO_SUCH_TABLE') {
+        return res.status(404).json({ error: `No settings found for ${username}.` });
+      }
+
+      return res.status(500).json({ error: `Failed to fetch settings for ${username}.` });
+    }
+    res.status(200).json(results);
+  });
+});
+
+
+
+// Endpoint to Update a Specific Setting Value
+app.put('/api/settings/:username/:id', (req, res) => {
+  const { username, id } = req.params;
+  const { value } = req.body;
+
+  const userTableName = `user_${username}`;
+  const updateQuery = `UPDATE \`${userTableName}\` SET value = ? WHERE id = ?`;
+
+  db.query(updateQuery, [value, id], (err, result) => {
+    if (err) {
+      console.error(`Error updating setting for ${username}:`, err);
+      return res.status(500).json({ error: `Failed to update setting for ${username}.` });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Setting not found.' });
+    }
+
+    res.status(200).json({ message: 'Setting updated successfully.' });
+  });
+});
+
+
+
+
+// Endpoint to check access for a specific section
+// Backend API for access check
+app.get('/api/access/:username/:section', (req, res) => {
+  const { username, section } = req.params;
+
+  const isValidUsername = /^[a-zA-Z0-9_]+$/.test(username);
+  if (!isValidUsername) {
+    return res.status(400).json({ error: 'Invalid username.' });
+  }
+
+  const userTableName = `user_${username}`;
+  const query = `SELECT value FROM \`${userTableName}\` WHERE name = ?`;
+
+  db.query(query, [section], (err, results) => {
+    if (err) {
+      console.error(`Error checking access for ${section} in ${username}:`, err);
+
+      if (err.code === 'ER_NO_SUCH_TABLE') {
+        return res.status(404).json({ error: `User settings not found for ${username}.` });
+      }
+
+      return res.status(500).json({ error: `Failed to check access for ${section}.` });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({ error: `Section ${section} not found for ${username}.` });
+    }
+
+    res.status(200).json({ access: results[0].value === 'yes' });
+  });
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
