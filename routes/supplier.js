@@ -1218,5 +1218,30 @@ router.delete("/delete_supplier_payment/:paymentId", (req, res) => {
 });
 
 
+
+//loan amount total
+router.get('/get_total_loan', (req, res) => {
+  const { supplierId } = req.query;
+
+  if (!supplierId) {
+    return res.status(400).json({ error: 'supplierId is required' });
+  }
+
+  const query = 'SELECT SUM(loanAmount) AS totalLoan FROM supplier_loan WHERE supId = ?';
+  db.query(query, [supplierId], (err, results) => {
+    if (err) {
+      console.error('Error fetching total loan:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+
+    const totalLoan = results[0].totalLoan || 0.00;
+    res.json({ totalLoan });
+  });
+});
+
+
+
+
+
 // Export Router
 module.exports = router;

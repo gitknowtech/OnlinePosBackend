@@ -1296,26 +1296,133 @@ router.get('/suppliercount', (req, res) => {
 
 // Route to fetch the last invoice ID
 router.get("/lastInvoiceId", (req, res) => {
+  const currentDate = moment().format("YYYY-MM-DD"); // Get the current date in the format 'YYYY-MM-DD'
+
   const query = `
     SELECT invoiceId 
     FROM invoices 
+    WHERE DATE(createdAt) = ? 
     ORDER BY createdAt DESC 
     LIMIT 1
   `;
 
-  db.query(query, (err, results) => {
+  db.query(query, [currentDate], (err, results) => {
     if (err) {
-      console.error("Error fetching last invoice ID:", err);
+      console.error("Error fetching last invoice ID for the current date:", err);
       return res.status(500).json({ message: "Failed to fetch last invoice ID", error: err });
     }
 
     if (results.length === 0) {
-      return res.status(404).json({ message: "No invoices found" });
+      return res.status(404).json({ message: "No invoices found for the current date" });
     }
 
     res.json({ invoiceId: results[0].invoiceId });
   });
 });
+
+
+
+// Endpoint to fetch sales summary
+// Endpoint to fetch sales data by invoiceId for the current date
+router.get("/sales-summary-chart", (req, res) => {
+  const query = `
+    SELECT 
+      invoiceId, 
+      totalAmount
+    FROM invoices
+    WHERE DATE(createdAt) = CURDATE() -- Filter for the current date
+    ORDER BY createdAt ASC; -- Order invoices by time
+  `;
+
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error("Error fetching sales data:", err.message);
+      return res.status(500).json({ error: "Failed to fetch sales data" });
+    }
+
+    res.json(results);
+  });
+});
+
+
+
+// Endpoint to fetch today's netAmount sales data
+router.get("/sales-netamount-summary", (req, res) => {
+  const query = `
+    SELECT 
+      invoiceId, 
+      netAmount 
+    FROM sales
+    WHERE DATE(createdAt) = CURDATE() -- Only today's data
+    ORDER BY createdAt ASC;
+  `;
+
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error("Error fetching sales net amount summary:", err.message);
+      return res.status(500).json({ error: "Failed to fetch sales net amount summary" });
+    }
+
+    res.json(results);
+  });
+});
+
+
+
+// Endpoint to fetch last 5 invoices
+router.get("/last-5-invoices", (req, res) => {
+  const query = `
+    SELECT invoiceId, netAmount, CashPay, CardPay, UserName
+    FROM sales
+    ORDER BY createdAt DESC
+    LIMIT 5;
+  `;
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error("Error fetching last 5 invoices:", err.message);
+      return res.status(500).json({ error: "Failed to fetch last 5 invoices" });
+    }
+    res.json(results);
+  });
+});
+
+// Endpoint to fetch top 5 products
+router.get("/top-5-products", (req, res) => {
+  const query = `
+    SELECT productId, name, mrp, barcode, SUM(quantity) AS totalQuantity
+    FROM invoices
+    WHERE MONTH(createdAt) = MONTH(CURDATE()) AND YEAR(createdAt) = YEAR(CURDATE())
+    GROUP BY productId, name, mrp, barcode
+    ORDER BY totalQuantity DESC
+    LIMIT 5;
+  `;
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error("Error fetching top 5 products:", err.message);
+      return res.status(500).json({ error: "Failed to fetch top 5 products" });
+    }
+    res.json(results);
+  });
+});
+
+// Endpoint to fetch last 5 credit sales
+router.get("/last-5-credit-sales", (req, res) => {
+  const query = `
+    SELECT invoiceId, CustomerId, netAmount, createdAt
+    FROM sales
+    WHERE PaymentType = 'Credit Payment' AND DATE(createdAt) = CURDATE()
+    ORDER BY createdAt DESC
+    LIMIT 5;
+  `;
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error("Error fetching last 5 credit sales:", err.message);
+      return res.status(500).json({ error: "Failed to fetch last 5 credit sales" });
+    }
+    res.json(results);
+  });
+});
+
 
 
 
