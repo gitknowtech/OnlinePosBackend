@@ -736,18 +736,6 @@ app.get('/api/access/:username/:section', (req, res) => {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
 // Start the server
 const PORT = 5000;
 app.listen(PORT, () => {
