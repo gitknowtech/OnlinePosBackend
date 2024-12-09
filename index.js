@@ -175,6 +175,10 @@ app.get("/api/user/:username", (req, res) => {
 const bcrypt = require('bcrypt');
 
 
+// Function to sanitize table names
+const sanitizeUserName = (username) => {
+  return username.replace(/[^a-zA-Z0-9_]/g, '');
+};
 
 // POST route to handle form data and file upload for inserting admin data
 app.post('/create-admin', upload.single('Image'), async (req, res) => {
@@ -200,16 +204,69 @@ app.post('/create-admin', upload.single('Image'), async (req, res) => {
     db.query(insertQuery, [Name, Email, UserName, encryptedPassword, iv, imagePath, currentTime, currentTime], (err, result) => {
       if (err) {
         console.error('Database error:', err); // Log the exact error
-        return res.status(500).json({ error: JSON.stringify(err) }); // Return the exact error object as a string
+        return res.status(500).json({ error: 'Failed to save admin to the database.' });
       }
-      res.status(200).json({ message: 'Admin account created successfully', id: result.insertId });
+
+      // Sanitize the UserName to prevent SQL injection
+      const sanitizedUserName = sanitizeUserName(UserName);
+      const userTableName = `user_${sanitizedUserName}`;
+
+      const createTableQuery = `
+        CREATE TABLE ?? (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          name VARCHAR(255) NOT NULL,
+          value ENUM('yes', 'no') NOT NULL DEFAULT 'yes'
+        )
+      `;
+
+      // Use parameterized queries to prevent SQL injection for table names
+      db.query(createTableQuery, [userTableName], (createErr) => {
+        if (createErr) {
+          console.error('Database error during table creation:', createErr);
+          return res.status(500).json({ error: 'Failed to create admin-specific table.' });
+        }
+
+        // Predefine rows and insert into the new table with value set to 'yes'
+        const rows = [
+          'Dashboard', 'Invoice', 'Sales', 'InvoiceList', 'SalesList',
+          'Stock', 'StockIn', 'StockOut', 'GetStock', 'OutStock',
+          'StockByCategory', 'StockBySupplier', 'StockByBatch', 'Product',
+          'ProductCard', 'ProductList', 'AddProduct', 'ManageBatch',
+          'ManageUnit', 'ManageCategory', 'RemovedProducts', 'Purchasing',
+          'SupplierList', 'AddSupplier', 'SupplierPayment', 'ManageBank',
+          'RemovedSupplier', 'User', 'AddUser', 'ManageUser', 'Customer',
+          'ManageCustomer', 'AddCustomer', 'CreditSales', 'CustomerBalance',
+          'Quotation', 'QuotationList', 'Charts', 'CustomerChart',
+          'StockChart', 'StockOutChart', 'SaleChart', 'Setting', 'Reports',
+          'Backup'
+        ];
+
+        const insertRowsQuery = `
+          INSERT INTO ?? (name, value)
+          VALUES ?
+        `;
+
+        const rowData = rows.map((rowName) => [rowName, 'yes']);
+
+        db.query(insertRowsQuery, [userTableName, rowData], (insertErr) => {
+          if (insertErr) {
+            console.error('Database error during row insertion:', insertErr);
+            return res.status(500).json({ error: 'Failed to populate admin-specific table.' });
+          }
+
+          res.status(200).json({
+            message: 'Admin account created successfully with admin-specific table.',
+            userName: UserName,
+            tableName: userTableName,
+          });
+        });
+      });
     });
   } catch (err) {
     console.error('Error during encryption or database query:', err); // Log detailed error
     res.status(500).json({ error: err.message || 'Server error' }); // Return a detailed error message
   }
 });
-
 
 
 
@@ -565,14 +622,23 @@ app.put('/api/users/update_user/:UserName', async (req, res) => {
 
 
 // Endpoint to Fetch All Users
+// GET endpoint to fetch all non-admin users with pagination
 app.get('/api/users', (req, res) => {
-  const query = 'SELECT UserName FROM users';
-  db.query(query, (err, results) => {
+  const { page = 1, limit = 10 } = req.query;
+  const offset = (page - 1) * limit;
+  const query = 'SELECT UserName FROM users WHERE Type != ? LIMIT ? OFFSET ?';
+
+  db.query(query, ['admin', parseInt(limit), parseInt(offset)], (err, results) => {
     if (err) {
       console.error('Error fetching users:', err);
       return res.status(500).json({ error: 'Failed to fetch users.' });
     }
-    res.status(200).json(results);
+
+    res.status(200).json({
+      page: parseInt(page),
+      limit: parseInt(limit),
+      users: results,
+    });
   });
 });
 
@@ -633,7 +699,6 @@ app.put('/api/settings/:username/:id', (req, res) => {
 
 
 
-// Endpoint to check access for a specific section
 // Backend API for access check
 app.get('/api/access/:username/:section', (req, res) => {
   const { username, section } = req.params;
