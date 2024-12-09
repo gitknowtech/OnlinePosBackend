@@ -33,7 +33,7 @@ CREATE TABLE `product_stockin` (
   `date` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `invoiceId` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`stockInId`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -42,7 +42,7 @@ CREATE TABLE `product_stockin` (
 
 LOCK TABLES `product_stockin` WRITE;
 /*!40000 ALTER TABLE `product_stockin` DISABLE KEYS */;
-INSERT INTO `product_stockin` VALUES (1,1,'Sleeve Shirt ','08145',2.0000,'ReturnItem','kurunegala','2024-11-25 14:20:50','2411250001');
+INSERT INTO `product_stockin` VALUES (1,1,'Sleeve Shirt ','08145',2.0000,'ReturnItem','kurunegala','2024-11-25 14:20:50','2411250001'),(2,12,'Slim Fit Jeans','34856',2.0000,'StockIn','kurunegala','2024-11-26 15:58:10',NULL),(3,12,'Slim Fit Jeans','34856',4.0000,'StockIn','kurunegala','2024-11-26 15:58:12',NULL),(4,12,'Slim Fit Jeans','34856',2.0000,'StockIn','kurunegala','2024-11-26 15:58:14',NULL),(5,12,'Slim Fit Jeans','34856',5.0000,'StockIn','kurunegala','2024-11-26 15:58:16',NULL),(6,12,'Slim Fit Jeans','34856',3.0000,'StockIn','kurunegala','2024-11-26 15:58:18',NULL),(7,12,'Slim Fit Jeans','34856',1.0000,'StockIn','kurunegala','2024-11-26 15:58:21',NULL),(8,12,'Slim Fit Jeans','34856',20.0000,'StockIn','kurunegala','2024-11-26 15:58:26',NULL),(9,12,'Slim Fit Jeans','34856',30.0000,'StockIn','kurunegala','2024-11-26 16:30:24',NULL),(10,12,'Slim Fit Jeans','34856',100.0000,'StockIn','kurunegala','2024-11-26 18:12:24',NULL),(11,12,'Slim Fit Jeans','34856',500.0000,'StockIn','kurunegala','2024-11-26 18:12:58',NULL);
 /*!40000 ALTER TABLE `product_stockin` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -55,4 +55,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2024-11-26  8:55:07
+-- Dump completed on 2024-12-09  8:25:40

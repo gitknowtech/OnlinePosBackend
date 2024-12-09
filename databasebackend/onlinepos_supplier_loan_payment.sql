@@ -27,11 +27,12 @@ CREATE TABLE `supplier_loan_payment` (
   `generatedId` varchar(255) NOT NULL,
   `paymentAmount` decimal(10,2) NOT NULL,
   `referenceNumber` varchar(255) NOT NULL,
+  `filePath` varchar(1000) DEFAULT NULL,
   `saveTime` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `generatedId` (`generatedId`),
   CONSTRAINT `supplier_loan_payment_ibfk_1` FOREIGN KEY (`generatedId`) REFERENCES `supplier_loan` (`generatedId`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -40,6 +41,7 @@ CREATE TABLE `supplier_loan_payment` (
 
 LOCK TABLES `supplier_loan_payment` WRITE;
 /*!40000 ALTER TABLE `supplier_loan_payment` DISABLE KEYS */;
+INSERT INTO `supplier_loan_payment` VALUES (6,'7184E9',5000.00,'25757','1733367737336-197992480-check bill.pdf','2024-12-05 08:32:17'),(7,'7184E9',5000.00,'45645',NULL,'2024-12-08 07:59:23'),(8,'7184E9',5000.00,'4856465',NULL,'2024-12-08 07:59:41');
 /*!40000 ALTER TABLE `supplier_loan_payment` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -52,4 +54,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2024-11-26  8:55:06
+-- Dump completed on 2024-12-09  8:25:40

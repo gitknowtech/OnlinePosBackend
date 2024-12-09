@@ -36,7 +36,7 @@ CREATE TABLE `supplier_loan` (
   `saveTime` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `generatedId` (`generatedId`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -45,6 +45,7 @@ CREATE TABLE `supplier_loan` (
 
 LOCK TABLES `supplier_loan` WRITE;
 /*!40000 ALTER TABLE `supplier_loan` DISABLE KEYS */;
+INSERT INTO `supplier_loan` (`id`, `generatedId`, `supId`, `supName`, `loanAmount`, `cashAmount`, `billNumber`, `description`, `filePath`, `saveTime`) VALUES (9,'7184E9','003','asanka',5000.00,25000.00,'5757','dfbfh','1733367696731-26710150-certificatepaymentofficeandgraphicdesign.pdf','2024-12-05 08:31:36'),(10,'903BA3','003','asanka',50000.00,20000.00,'6541561','veneriguber','1733624787475-226211287-Buddy_Travel.pdf','2024-12-08 07:56:27'),(11,'768846','003','asanka',12000.00,8000.00,'256','hfhg',NULL,'2024-12-08 07:56:51'),(12,'46CAD7','003','asanka',10000.00,1000.00,'515','56156',NULL,'2024-12-08 08:05:12');
 /*!40000 ALTER TABLE `supplier_loan` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -57,4 +58,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2024-11-26  8:55:06
+-- Dump completed on 2024-12-09  8:25:41

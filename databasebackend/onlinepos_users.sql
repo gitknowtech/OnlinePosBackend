@@ -37,7 +37,7 @@ CREATE TABLE `users` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `Email` (`Email`),
   UNIQUE KEY `UserName` (`UserName`)
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -46,7 +46,7 @@ CREATE TABLE `users` (
 
 LOCK TABLES `users` WRITE;
 /*!40000 ALTER TABLE `users` DISABLE KEYS */;
-INSERT INTO `users` VALUES (1,'Abdul Rahman','arabdul0983@gmail.com','abdul','865720741f88','f4fb811b1539ea808286982ebc5e05b8','uploads\\1731211204706.png','admin','kurunegala','2024-11-10 09:30:04','2024-11-26 08:44:13'),(3,'ayantha','aya@gmail.com','aya123','cd5e932b23c3','4e86109459fe1eaa2dc5d3a06c35088f','uploads\\1731585166418.png','user','Wariyapolanew','2024-11-14 17:22:46','2024-11-14 17:22:46'),(5,'sajeewa','sajee@gmail.com','sajee','3705bd1ad047','3d863e0ae68fd118d7ebc85b1aabac8f','uploads\\1731585873040.jpeg','user','Wariyapolanew','2024-11-14 17:34:33','2024-11-14 17:34:33'),(6,'aruna lakshan','aruna@gmail.com','aruna123','f892ff311580','7f2fa5533e5b57f57075dacaf1a3612f','uploads\\1731585904260.jpeg','user','Kurunegala','2024-11-14 17:35:04','2024-11-14 17:35:04');
+INSERT INTO `users` VALUES (1,'Abdul Rahman','arabdul0983@gmail.com','Abdul','6814553fbe5a','083691ade9b6be7cd7400aea133aaf3b','uploads\\1733711726301.png','admin','all','2024-12-09 08:05:26','2024-12-09 08:15:32'),(2,'sajeewa','sajeewa@gmail.com','sajee123','fb1d60','4becb5deb17f64e0f4d4202f048a4452','uploads\\1733712289827.png','user','Kurunegala','2024-12-09 08:14:49','2024-12-09 08:15:24');
 /*!40000 ALTER TABLE `users` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -59,4 +59,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2024-11-26  8:55:05
+-- Dump completed on 2024-12-09  8:25:39
