@@ -1054,4 +1054,22 @@ router.get('/search_stock_in_quanity_chart', (req, res) => {
 
 
 
+// Route to get sum of costPrice and mrpPrice
+router.get("/sum_totals", (req, res) => {
+  const query = `
+    SELECT 
+      SUM(costPrice) AS totalCostPrice, 
+      SUM(mrpPrice) AS totalMrpPrice 
+    FROM products;
+  `;
+  db.query(query, (err, result) => {
+    if (err) {
+      console.error("Error fetching totals:", err);
+      res.status(500).json({ message: "Error fetching totals" });
+    } else {
+      res.status(200).json(result[0]); // Return the result
+    }
+  });
+});
+
 module.exports = router;
