@@ -327,24 +327,29 @@ router.get('/check_product_id/:productId', (req, res) => {
 router.get('/fetch_products', (req, res) => {
   const { store, status, searchTerm } = req.query;
 
+  // Base query
   let query = `SELECT * FROM products WHERE 1=1`;
-  let queryParams = [];
+  const queryParams = [];
 
+  // Add store condition
   if (store && store !== 'all') {
     query += ` AND (store = ? OR store = 'all')`;
     queryParams.push(store);
   }
 
+  // Add status condition
   if (status) {
     query += ` AND status = ?`;
     queryParams.push(status);
   }
 
+  // Add search term condition
   if (searchTerm) {
     query += ` AND (productId LIKE ? OR productName LIKE ? OR productNameSinhala LIKE ?)`;
     queryParams.push(`%${searchTerm}%`, `%${searchTerm}%`, `%${searchTerm}%`);
   }
 
+  // Execute the query
   db.query(query, queryParams, (err, results) => {
     if (err) {
       console.error('Error fetching products:', err);

@@ -108,4 +108,32 @@ router.get('/check-companies', (req, res) => {
 });
 
 
+router.get('/info', (req, res) => {
+  // Fetch the first company from the database
+  const query = 'SELECT Comid, Comname, Mobile, Location, Image FROM companies LIMIT 1';
+
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error('Error fetching company info:', err);
+      return res.status(500).json({ error: 'Database error occurred' });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({ error: 'No company found' });
+    }
+
+    const company = results[0];
+
+    // Map Image to LogoUrl as expected by the frontend
+    const response = {
+      LogoUrl: company.Image,
+      Comname: company.Comname,
+      Location: company.Location,
+      Mobile: company.Mobile,
+    };
+
+    res.status(200).json(response);
+  });
+});
+
 module.exports = router; 

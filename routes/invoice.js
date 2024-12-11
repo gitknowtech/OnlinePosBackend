@@ -132,15 +132,21 @@ const generateInvoiceId = () => {
   const datePart = moment().format("YYMMDD");
   return new Promise((resolve, reject) => {
     const query = `
-      SELECT COUNT(*) AS count FROM sales WHERE DATE(createdAt) = CURDATE()
+      SELECT MAX(invoiceId) AS maxId 
+      FROM sales 
+      WHERE DATE(createdAt) = CURDATE()
     `;
     db.query(query, (err, results) => {
       if (err) {
         console.error("Error generating invoice ID:", err.message, err.stack);
         return reject(err);
       }
-      const count = results[0].count + 1;
-      const paddedCount = count.toString().padStart(4, "0");
+      let nextCount = 1;
+      if (results[0].maxId) {
+        const lastCount = parseInt(results[0].maxId.slice(6), 10);
+        nextCount = lastCount + 1;
+      }
+      const paddedCount = nextCount.toString().padStart(4, "0");
       const invoiceId = `${datePart}${paddedCount}`;
       console.log(`Generated invoiceId: ${invoiceId}`);
       resolve(invoiceId);
@@ -270,6 +276,12 @@ router.post('/add_sales', (req, res) => {
       res.status(500).json({ message: 'Error generating invoiceId' });
     });
 });
+
+
+
+
+
+
 
 // Function to update stock and insert into product_stockout
 function updateStockAndInsertStockOut(productId, productName, barcode, quantity, store, invoiceId) {
