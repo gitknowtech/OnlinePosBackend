@@ -40,7 +40,7 @@ const createInvoicesTable = () => {
   const createTableQuery = `
     CREATE TABLE IF NOT EXISTS invoices (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    invoiceId VARCHAR(100) NOT NULL,
+    invoiceId VARCHAR(100) NOT NULL,fetch_sales_new
     productId VARCHAR(1000) NOT NULL,
     name VARCHAR(255) NOT NULL,
     cost DECIMAL(10,2),
@@ -1418,6 +1418,9 @@ router.get("/last-5-invoices", (req, res) => {
   });
 });
 
+
+
+
 // Endpoint to fetch top 5 products
 router.get("/top-5-products", (req, res) => {
   const query = `
@@ -1436,6 +1439,9 @@ router.get("/top-5-products", (req, res) => {
     res.json(results);
   });
 });
+
+
+
 
 // Endpoint to fetch last 5 credit sales
 router.get("/last-5-credit-sales", (req, res) => {
