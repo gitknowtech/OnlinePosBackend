@@ -119,10 +119,30 @@ router.get("/CurrentMonthSales", (req, res) => {
 
 
 
+// Create `startCash` table if it doesn't exist
+const createStartCashTable = () => {
+  const createTableQuery = `
+    CREATE TABLE IF NOT EXISTS startCash (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      currenttime DATETIME NOT NULL,
+      value DECIMAL(10,2) NOT NULL
+    )
+  `;
+  db.query(createTableQuery, (err) => {
+    if (err) {
+      console.error("Error creating startCash table:", err.message, err.stack);
+    } else {
+      console.log("startCash table exists or created successfully");
+    }
+  });
+};
+
+
 // Call the functions to create tables on server start
 createSalesTable();
 createInvoicesTable();
-
+createStartCashTable()
+;
 
 
 
