@@ -40,7 +40,7 @@ const createInvoicesTable = () => {
   const createTableQuery = `
     CREATE TABLE IF NOT EXISTS invoices (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    invoiceId VARCHAR(100) NOT NULL,fetch_sales_new
+    invoiceId VARCHAR(100) NOT NULL,
     productId VARCHAR(1000) NOT NULL,
     name VARCHAR(255) NOT NULL,
     cost DECIMAL(10,2),
@@ -125,6 +125,7 @@ const createStartCashTable = () => {
     CREATE TABLE IF NOT EXISTS startCash (
       id INT AUTO_INCREMENT PRIMARY KEY,
       currenttime DATETIME NOT NULL,
+      username VARCHAR(255) NOT NULL,
       value DECIMAL(10,2) NOT NULL
     )
   `;
@@ -136,7 +137,6 @@ const createStartCashTable = () => {
     }
   });
 };
-
 
 // Call the functions to create tables on server start
 createSalesTable();
@@ -1461,6 +1461,45 @@ router.get("/last-5-credit-sales", (req, res) => {
   });
 });
 
+
+
+// Add Start Cash Balance
+router.post("/addStartCash", async (req, res) => {
+  const { username, date, value } = req.body;
+
+  try {
+    await db.query(
+      "INSERT INTO startCash (currenttime, username, value) VALUES (?, ?, ?)",
+      [new Date(date).toISOString(), username, value]
+    );
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error adding startCash:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Check Start Cash Existence
+router.post("/checkStartCash", async (req, res) => {
+  const { username, date } = req.body;
+
+  try {
+    const [result] = await db.query(
+      "SELECT * FROM startCash WHERE DATE(currenttime) = ? AND username = ?",
+      [date, username]
+    );
+
+    if (result.length > 0) {
+      res.json({ exists: true });
+    } else {
+      res.json({ exists: false });
+    }
+  } catch (error) {
+    console.error("Error checking startCash:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
 
 
 
