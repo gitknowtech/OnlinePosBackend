@@ -172,7 +172,7 @@ app.get("/api/user/:username", (req, res) => {
 
 
 
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 
 
 // Function to sanitize table names
@@ -322,7 +322,7 @@ app.post('/create-user', upload.single('Image'), async (req, res) => {
             'ManageCustomer', 'AddCustomer', 'CreditSales', 'CustomerBalance',
             'Quotation', 'QuotationList', 'Charts', 'CustomerChart',
             'StockChart', 'StockOutChart', 'SaleChart', 'Setting', 'Reports',
-            'Backup'
+            'Backup', 'ManageStore'
           ];
 
           const insertRowsQuery = `
@@ -729,9 +729,6 @@ app.get('/api/access/:username/:section', (req, res) => {
     res.status(200).json({ access: results[0].value === 'yes' });
   });
 });
-
-
-
 
 
 

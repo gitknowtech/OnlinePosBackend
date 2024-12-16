@@ -108,6 +108,8 @@ router.get('/check-companies', (req, res) => {
 });
 
 
+
+
 router.get('/info', (req, res) => {
   // Fetch the first company from the database
   const query = 'SELECT Comid, Comname, Mobile, Location, Image FROM companies LIMIT 1';

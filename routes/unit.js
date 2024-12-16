@@ -168,43 +168,44 @@ router.get("/get_units", (req, res) => {
 
 
 
-
-
-
-
-
 router.post("/create_units", (req, res) => {
-    const { id, unitName, user, store, saveTime } = req.body;
+  let { id, unitName, user, store, saveTime } = req.body;
 
-    const insertQuery = "INSERT INTO units (id, unitName, user, store, saveTime) VALUES (?, ?, ?, ?, ?)";
+  // If saveTime is not provided, set it to the current time
+  if (!saveTime) {
+      saveTime = new Date(); // Sets current date and time
+  }
 
-    db.query(insertQuery, [id, unitName, user, store, saveTime], (err, result) => {
-        if (err) {
-            // Handle duplicate entry error (MySQL error code 1062)
-            if (err.code === 'ER_DUP_ENTRY') {
-                console.error('Duplicate ID detected:', err);
-                return res.status(400).json({
-                    message: "Duplicate ID",
-                    error: err.message || 'Duplicate ID error',
-                    code: err.code || 'No code',
-                    errno: err.errno || 'No errno'
-                });
-            }
+  const insertQuery = "INSERT INTO units (id, unitName, user, store, saveTime) VALUES (?, ?, ?, ?, ?)";
 
-            // Log other MySQL errors
-            console.error('Error saving unit to database:', err);
-            return res.status(500).json({
-                message: "Error saving unit. Please try again.",
-                error: err.message || 'Unknown error',
-                sqlMessage: err.sqlMessage || 'No SQL message',
-                code: err.code || 'No code',
-                errno: err.errno || 'No errno'
-            });
-        }
+  db.query(insertQuery, [id, unitName, user, store, saveTime], (err, result) => {
+      if (err) {
+          // Handle duplicate entry error (MySQL error code 1062)
+          if (err.code === 'ER_DUP_ENTRY') {
+              console.error('Duplicate ID detected:', err);
+              return res.status(400).json({
+                  message: "Duplicate ID",
+                  error: err.message || 'Duplicate ID error',
+                  code: err.code || 'No code',
+                  errno: err.errno || 'No errno'
+              });
+          }
 
-        return res.status(201).json({ message: "Unit added successfully" });
-    });
+          // Log other MySQL errors
+          console.error('Error saving unit to database:', err);
+          return res.status(500).json({
+              message: "Error saving unit. Please try again.",
+              error: err.message || 'Unknown error',
+              sqlMessage: err.sqlMessage || 'No SQL message',
+              code: err.code || 'No code',
+              errno: err.errno || 'No errno'
+          });
+      }
+
+      return res.status(201).json({ message: "Unit added successfully" });
+  });
 });
+
 
 
 module.exports = router;
