@@ -1462,25 +1462,7 @@ router.get("/last-5-credit-sales", (req, res) => {
 });
 
 
-
-// Add Start Cash Balance
-router.post("/addStartCash", async (req, res) => {
-  const { username, date, value } = req.body;
-
-  try {
-    await db.query(
-      "INSERT INTO startCash (currenttime, username, value) VALUES (?, ?, ?)",
-      [new Date(date).toISOString(), username, value]
-    );
-
-    res.json({ success: true });
-  } catch (error) {
-    console.error("Error adding startCash:", error);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-// Check Start Cash Existence
+// Modified Check Start Cash Existence with Details
 router.post("/checkStartCash", async (req, res) => {
   const { username, date } = req.body;
 
@@ -1491,7 +1473,7 @@ router.post("/checkStartCash", async (req, res) => {
     );
 
     if (result.length > 0) {
-      res.json({ exists: true });
+      res.json({ exists: true, startCash: result[0] });
     } else {
       res.json({ exists: false });
     }
@@ -1501,6 +1483,28 @@ router.post("/checkStartCash", async (req, res) => {
   }
 });
 
+
+
+// Get Start Cash Details
+router.post("/getStartCash", async (req, res) => {
+  const { username, date } = req.body;
+
+  try {
+    const [result] = await db.query(
+      "SELECT * FROM startCash WHERE DATE(currenttime) = ? AND username = ?",
+      [date, username]
+    );
+
+    if (result.length > 0) {
+      res.json({ startCash: result[0] });
+    } else {
+      res.status(404).json({ error: "Start cash not found." });
+    }
+  } catch (error) {
+    console.error("Error fetching startCash:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
 
 
 
