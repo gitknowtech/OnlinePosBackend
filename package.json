@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "prestart": "npx kill-port 5000",
+    "prestart": "npx kill-port 5000", 
     "start": "node index.js",
-    "dev": "npx kill-port 5000 && node index.js",
+    "dev": "node find-port.js && node index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
@@ -20,6 +20,9 @@
     "mysql": "^2.18.1",
     "path": "^0.12.7",
     "pdfkit": "^0.15.1"
+  },
+  "devDependencies": {
+    "kill-port-cli": "^1.0.1"
   },
   "keywords": [],
   "author": "",
