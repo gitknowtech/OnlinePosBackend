@@ -20,6 +20,7 @@ const expensesRouter = require('./routes/expenses')
 const customerRouter = require('./routes/customer')
 const supplierPurchaseRouter = require('./routes/purchases')
 
+
 const app = express();
 app.use(cors());
 app.use(express.json());

@@ -2,11 +2,11 @@ const mysql = require('mysql');
 
 // Create a connection to the MariaDB/MySQL database
 const db = mysql.createConnection({
-  host: '154.26.129.243',   // Hostname
-  port: 3306,          // MariaDB/MySQL Port
-  user: 'danagaPaints', // MySQL User
+  host: 'localhost',   // Hostname
+  port: 3307,          // MariaDB/MySQL Port
+  user: 'root', // MySQL User
   password: 'ASDfg!@#1234', // MySQL Password
-  database: 'danagaonlinepos',  // Database Name
+  database: 'onlinepos',  // Database Name
 });
 
 // Connect to the MySQL/MariaDB database
