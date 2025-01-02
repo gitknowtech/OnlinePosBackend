@@ -734,6 +734,40 @@ app.get('/api/access/:username/:section', (req, res) => {
 
 
 
+// Root route to display a simple HTML message indicating successful connection
+app.get('/', (req, res) => {
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+      <title>Server Connected</title>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          text-align: center;
+          margin-top: 10%;
+          color: #333;
+        }
+        h1 {
+          color: #4CAF50;
+        }
+        p {
+          font-size: 18px;
+        }
+      </style>
+    </head>
+    <body>
+      <h1>Server Connected Successfully!</h1>
+      <p>Your backend server is up and running.</p>
+    </body>
+    </html>
+  `;
+  res.send(htmlContent);
+});
+
+
 // Start the server
 const PORT = 5000;
 app.listen(PORT, () => {
