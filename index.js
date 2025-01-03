@@ -323,7 +323,7 @@ app.post('/create-user', upload.single('Image'), async (req, res) => {
             'ManageCustomer', 'AddCustomer', 'CreditSales', 'CustomerBalance',
             'Quotation', 'QuotationList', 'Charts', 'CustomerChart',
             'StockChart', 'StockOutChart', 'SaleChart', 'Setting', 'Reports',
-            'Backup', 'ManageStore'
+            'Backup', 'ManageStore', 'ManageStore'
           ];
 
           const insertRowsQuery = `

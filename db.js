@@ -5,7 +5,7 @@ const db = mysql.createConnection({
   host: 'localhost',   // Hostname
   port: 3307,          // MariaDB/MySQL Port
   user: 'root', // MySQL User
-  password: 'ASDfg!@12345', // MySQL Password
+  password: 'ASDfg!@#1234', // MySQL Password
   database: 'onlinepos',  // Database Name
 });
 
