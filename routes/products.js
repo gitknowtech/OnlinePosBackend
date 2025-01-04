@@ -642,6 +642,7 @@ router.get('/search', (req, res) => {
 });
 
 
+
 // Updated /search_invoice_by_store route to include imageLink
 router.get('/search_invoice_by_store', (req, res) => {
   const { query, store } = req.query;
@@ -650,7 +651,7 @@ router.get('/search_invoice_by_store', (req, res) => {
     return res.status(400).json({ message: "Search query and store are required." });
   }
 
-  // Updated SQL query to include imageLink
+  // Corrected SQL query to include imageLink
   const sqlQuery = `
     SELECT 
       productId, 
@@ -671,6 +672,7 @@ router.get('/search_invoice_by_store', (req, res) => {
     LIMIT 10
   `;
 
+  // Correct syntax for parameterized query with wildcard
   const searchTerm = `%${query}%`; // Using % wildcard for partial match
 
   db.query(sqlQuery, [searchTerm, searchTerm, searchTerm, store], (err, results) => {
@@ -681,6 +683,8 @@ router.get('/search_invoice_by_store', (req, res) => {
     res.status(200).json(results); // Return matching products including imageLink
   });
 });
+
+
 
 
 
